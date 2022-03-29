@@ -216,7 +216,7 @@ main{
  关于web.xml
 
 ```xml
-每个servle都需要在web.xml中进行配置
+每个servlet都需要在web.xml中进行配置
 	<servlet>
         <servlet-name>HelloServlet</servlet-name>  servlet的类的别名，用于与mapping绑定
         <servlet-class>com.example.demonet.HelloServlet</servlet-class> 类的真名
