@@ -652,7 +652,130 @@ int main(){
 
 <img src="../../_Images/image-20220314163452551.png" alt="image-20220314163452551" style="zoom:50%;" />![image-20220314164258853](../../_Images/image-20220314164258853.png)
 
-## Lecture17 Virtual Memory Concepts
+## Lecture11 Cache Memory
+
+## Lecture12 Linking
+
+## Lecture13 Exceptions & Processes
+
+## Lecture14 Signal & Nonlocal Jump
+
+## Lecture15 System Level I/O
+
+### 一些概念
+
+- **I/O**	即输入输出，对象是内存与外设之间
+- **高级别IO函数**    C语言中的printf、Cpp中重载的>>与<<，都是较高级别的IO
+
+### Unix IO
+
+在Linux中，所有设备都用**文件**（即一串字节序列来抽象），因此输入输出都可以以统一的方式来进行，即读写文件...
+
+统一的方式：
+
+- **打开文件**
+
+	程序要求内核打开文件，来读写外设。内核返回一个小的非负整数，作为一个描述符，用来标识这个文件。程序通过记录这个描述符来执行读写操作。**Linux Shell 创建的每个进程开始时都有三个打开的文件，标准输入（描述符为0）、标准输出（1），标准错误（2）**
+
+- **移动文件位置**
+
+	对于每个打开的文件，内核维护一个**文件位置表**，记录从文件开始的字节偏移量offset。（这个也很懵啊...）
+
+- **读写文件**
+
+	读操作就是从文件复制n大小的内容到内存，从当前文件位置k开始，将k增加到k+n的位置。（猜测写应该也差不多~）
+
+- **关闭文件**
+
+	通知内核关闭文件。内核将描述符归为可用，并处理一些后续操作比如释放空间等。
+
+> 到这里看到还是挺懵逼的...似乎并不好理解...这里IO所谓的文件不是存储在disk上吗？而disk不又是一个外设吗？这就很迷了。
+
+### Linux文件系统
+
+- **文件类型**暂时只讨论这三种：
+	- **普通文件** 包含任意数据，可以是文本也可以是二进制，反正就是一个普普通通的字节序列就是了
+	- **目录** 是包含了一组链接（link）的文件，每个链接都将一个文件名映射到一个文件，至于".",".."这俩就不多说了
+	- **套接字** 用来与另一个进程进行跨网络通信的文件
+- **层次结构** 和WIN差不多...不多说
+- **当前工作目录** 每个进程都有一个当前工作目录，可以是绝对路径或相对路径
+
+### 相关系统调用
+
+#### 打开或关闭文件
+
+```c
+#include "unistd.h"
+
+//打开path对应的文件
+//flags可选值：O_RDONLY,O_WRONLY,O_RDWR,O_CREAT,O_TRUNC,O_APPEND，支持位运算
+//返回值为对应的文件描述符，出错为-1
+int open(char* path,int flags,mode_t mode);
+
+//关闭fd对应的文件
+//fd为文件描述符
+//返回值成功为0，失败为-1
+int close(int fd);
+```
+
+#### 读写文件
+
+```c
+#include "unistd.h"
+
+//从fd文件中读出n个字节并写入buf中，返回读出的字节数
+//比较有意思的是...如果读到了EOF会直接返回...但是第一次碰到EOF并不会返回0...因为确实有读到字节
+//而且...这个函数会被中断，导致返回-1，只能通过查看errno来确定是被中断还是自己出错
+int read(int fd,void* buf,size_t n);
+
+//写和读差不多
+int write(int fd,void* buf,size_t n);
+```
+
+#### 查看文件状态
+
+```c
+#include "unistd.h"
+
+//会提取出path对应文件的stat数据结构到buf中
+int stat(char* path,struct stat *buf);
+```
+
+<img src="../../_Images/image-20220331201014378.png" alt="image-20220331201014378" style="zoom:67%;" />
+
+### 封装一个健壮的IO库
+
+**还在写**
+
+### IO原理
+
+- **描述符表**
+
+	一个进程将维护一个属于自己的描述符表，里面每个描述符对应一个该进程打开的文件
+
+- **文件表**
+
+	记录着当前打开的所有文件的读写信息（如读到的位置k），这张表被所有进程共享，由内核维护
+
+- **V-Node表** 
+
+	记录着该文件的Stat等条目
+
+<img src="../../_Images/image-20220331201547666.png" alt="image-20220331201547666" style="zoom:67%;" />
+
+**因此，一个磁盘上的物理文件，只可能对应一个v-node条目，但是可能对应多个文件表条目（被多个进程打开或被一个进程打开多次），而一条文件表条目可以对应多个描述符条目（重定向或fork）**
+
+来看具体情况
+
+- 同一个进程打开同一个文件多次
+
+	<img src="../../_Images/image-20220331201348686.png" alt="image-20220331201348686" style="zoom:67%;" />
+	
+	- fork出子进程后子进程与父进程的文件关系
+	
+		<img src="../../_Images/image-20220331201433758.png" alt="image-20220331201433758" style="zoom:67%;" />
+
+## Lecture16 Virtual Memory Concepts
 
 ### 什么是虚拟内存
 
@@ -712,7 +835,7 @@ int main(){
 - 方便内存的管理，尤其是在不同进程间共享数据时
 - 方便内存保护，因为虚拟内存对地址通过页表进行了一次翻译，即虚拟地址要通过页表来确定具体信息，只要在页表中添加相关内容即可很容易地规范内存的访问
 
-## Lecture18 Virtual Memory System
+## Lecture17 Virtual Memory System
 
 上面说了那么多，但是都只是一直止步于实现思路与概念的讲解。
 
@@ -966,7 +1089,7 @@ flags的可选值
 int munmap(void* start, size_t length);
 ```
 
-## Lecture19&20 Dynamic Memory Allocate
+## Lecture18&19 Dynamic Memory Allocate
 
 这一部分我们将学习动态内存分配的相关内容
 
@@ -1058,4 +1181,319 @@ Knuth提出一个解决方案...在节点结尾再加一个头部的副本，作
 
 ### 实现一个简单的分配器
 
-我去VS code了~~
+贴上代码
+
+```c
+#include "memlib.c"
+
+#define WSIZE 4 //字长
+#define DSIZE 8 //双字长
+#define CHUNKSIZE (1<<12) //不懂，之后看
+
+#define MAX(x,y) ((x)>(y)?:(x):(y))
+
+#define PACK(size,alloc) ((size)|(alloc)) //方便头部或脚部打包
+
+//读写一个字
+#define GET(p) (*(unsigned int *)(p))
+#define PUT(p,val) (*(unsigned int *)(p) = (val))
+
+//从地址p中读取头部信息
+#define GET_SIZE(p) (GET(p) & ~0x7)
+#define GET_ALLOC(p) (GET(p) & 0x1)
+
+//给一个首地址，计算出它的块的头部和脚部
+#define HDRP(bp) ((char*)(bp) - WSIZE)
+#define FTRP(bp) ((char*)(bp) + GET_SIZE(HDRP(bp))-DSIZE)
+
+//给一个块地址，计算出下一个块或上一个块的首地址
+#define NEXT_BLKP(bp) ((char*)(bp) + GET_SIZE(((char*)(bp)-WSIZE)))
+#define PREV_BLKP(bp) ((char*)(bp) - GET_SIZE(((char*)(bp)-DSIZE)))
+
+static char* heap_listp;
+
+static void* coalesce(void* bp){
+    size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
+    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
+    size_t size = GET_SIZE(HDRP(bp));
+
+    if(prev_alloc&&next_alloc) return bp;
+    
+    else if(prev_alloc&&!next_alloc){
+        size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
+        PUT(HDRP(bp),PACK(size,0));
+        PUT(FTRP(bp),PACK(size,0));
+    }else if(!prev_alloc&&next_alloc){
+        size+= GET_SIZE(FTRP(PREV_BLKP(bp)));
+        PUT(FTRP(bp),PACK(size,0));
+        PUT(HDRP(PREV_BLKP(bp)),PACK(size,0));
+        bp = PREV_BLKP(bp);
+    }else{
+        size += GET_SIZE(FTRP(PREV_BLKP(bp)))+GET_SIZE(HDRP(NEXT_BLKP(bp)));
+        PUT(HDRP(PREV_BLKP(bp)),PACK(size,0));
+        PUT(FTRP(NEXT_BLKP(bp)),PACK(size,0));
+        bp = PREV_BLKP(bp);
+    }
+    return bp;
+}
+
+//释放空间
+void mm_free(void* bp){
+    size_t size = GET_SIZE(HDRP(bp));
+    PUT(HDRP(bp),PACK(size,0));
+    PUT(FTRP(bp),PACK(size,0));
+    coalesce(bp);
+}
+
+//扩展words大小的空间
+static void* extend_heap(size_t words){
+    char* bp;
+    size_t size;
+
+    //算一个双字对齐的size
+    size = (words%2)? (words+1)/WSIZE :words/WSIZE;
+    if((long)(bp=mem_sbrk(size)) == -1) return NULL;
+
+    //初始化块的头和脚
+    PUT(HDRP(bp),PACK(size,0));
+    PUT(FTRP(bp),PACK(size,0));
+    //重新添加一个结尾的头
+    PUT(HDRP(NEXT_BLKP(bp)),PACK(0,1));
+
+    //顺便看看bp前后有没有可以合并的
+    return coalesce(bp);
+}
+
+//初始化空闲链表
+int mm_init(void){
+    //创建空堆，并判断是否成功
+    //四个字，前一是空的，中间俩是序言,最后一个是堆尾
+    if((heap_listp = mem_sbrk(4*WSIZE)) == (void*) -1){
+        return -1;
+    }
+    //前一字写0,用来和堆尾凑双字对齐
+    PUT(heap_listp,0);
+    //中间俩字写序言的头和脚
+    PUT(heap_listp+WSIZE,PACK(DSIZE,1));
+    PUT(heap_listp+2*WSIZE,PACK(DSIZE,1));
+    //堆尾写头
+    PUT(heap_listp+3*WSIZE,PACK(0,1));
+    //heaplistp放在序言中间
+    heap_listp+=DSIZE;
+
+    //为堆扩展CHUNKSIZE大小的空间 4MB
+    if(extend_heap(CHUNKSIZE/WSIZE) == NULL) return -1;
+    return 0;
+}
+
+//搜索合适的块
+static void* find_fit(size_t size){
+    char* bp = heap_listp;
+    while(GET_SIZE(HDRP(bp)) != 0){
+        if(GET_ALLOC(HDRP(bp))!=1&&GET_SIZE(HDRP(bp))>size)
+            return bp;
+    }
+    return NULL;
+}
+
+static void place(void* bp,size_t asize){
+    size_t oldsize = GET_SIZE(bp);
+    PUT(HDRP(bp),PACK(asize,1));
+    PUT(FTRP(bp),PACK(asize,1));
+    PUT(HDRP(NEXT_BLKP(bp)),PACK(oldsize - asize),0);
+    PUT(FTRP(NEXT_BLKP(bp)),PACK(oldsize-asize),0);
+}
+
+void* mm_malloc(size_t size){
+    size_t asize;       //合适的size
+    size_t extendsize;  //不合适的话需要扩展的size
+
+    char* bp;
+
+    if(size == 0) return NULL;
+
+    if(size <= DSIZE){
+        asize = 2*DSIZE;
+    }else{
+        asize = DSIZE*((size+2*DSIZE-1)/DSIZE);
+    }
+
+    if((bp = find_fit(asize))!= NULL){
+        place(bp,asize);
+        return bp;
+    }
+
+    extendsize = MAX(asize,CHUNKSIZE);
+    if((bp = extend_heap(extendsize/WSIZE))==NULL){
+        return NULL;
+    }
+    place(bp,asize);
+    return bp;
+}
+```
+
+这个代码有几个很明显的特点
+
+- 使用宏函数简化
+- 需要比较全面的安全考虑
+
+值得以后照着注释多看看喔~
+
+### 小记
+
+除了隐式空闲链表写的显式分配器以外，还有显式空闲链表、隐式分配器等知识点，以后复习时候记得看~
+
+## Lecture20 Network Programming Part I
+
+### Socket编程中常用的函数
+
+#### 大小端转换
+
+TCP/IP协议中，规定了数据传输的**网络字节顺序**——**大端序**。因此，数据传输时经常需要对大小端进行转换。Unix提供了这样的函数。
+
+```c
+#include <arpa/inet.h>
+
+//host to net long
+uint32_t htonl(uint32_t hostlong); // 返回netlong(网络字节)
+
+uint16_t htons(uint16_t hostlong); // 返回netshort
+
+uint32_t ntohl(uint32_t netlong);
+
+uint16_t ntohs(uint16_t netshort);
+```
+
+#### IP地址格式转换
+
+IPv4地址常用点分十进制表示，常需要在点分十进制和数值之间进行转换
+
+如：128.2.194.242 <=> 0x8002c2f2	（32位二进制，分为4个点分十进制，每8位即2位十六进制表示一个十进制）
+
+Unix也提供了这样的点分十进制字符串与数值之间的转换函数
+
+```c
+#include <arpa/inet.h>
+
+//p为”表示“的意思（数值）
+//n为”网络“的意思（点分十进制）
+
+//AF_INET代表IPv4协议，src是点分十进制字符串，dest是转化的数值的保存位置
+//返回值：成功为1，src非法为0，出错为-1
+int inet_pton(AF_INET, const char *src, void* dest);
+
+//src是数值变量的地址，dest是字符串变量的地址，size是复制到字符串dest中的字符个数
+//返回值：成功为指向点分十进制字符串的指针，失败为NULL
+const char* inet_ntop(AF_INET, const void* src, char* dest, socklen_t size);
+```
+
+### 什么是Socket
+
+**Socket**，即**套接字**，是互联网连接的一个端点
+
+Socket有对应的地址，表示方式为  主机IP地址：端口号
+
+则一个连接可以由两个套接字组成的二元组描述
+
+客户端在连接时一般采用内核自动分配的**临时端口**，而服务端使用固定的**知名端口**，与提供的服务对应
+
+连接案例：
+
+<img src="../../_Images/image-20220402223226827.png" alt="image-20220402223226827" style="zoom:50%;" />
+
+### Socket Interface
+
+Unix为网络编程提供了套接字接口，下面是一般的编程逻辑
+
+<img src="../../_Images/image-20220402223516185.png" alt="image-20220402223516185" style="zoom:67%;" />
+
+#### 套接字地址结构
+
+<img src="../../_Images/image-20220402223749823.png" alt="image-20220402223749823" style="zoom:67%;" />
+
+又学到了一个奇怪的操作！
+
+操作系统负责连接的网络协议有许多种，因此需要一个通用的套接字地址结构，就是下一半的sockaddr结构体。而具体协议对应的socket结构体（如IP协议的sockaddr_in结构体）需要按通用套接字地址结构的方式实现，即可利用强制类型转换来获得通用套接字地址结构。
+
+#### Socket函数
+
+```c
+#include <sys/types.h>
+#include <sys/socket.h>
+
+//返回值为套接字描述符（非负，本质上就是一个文件描述符），错误返回-1
+int socket(int domain,		//socket的协议族（一般就是AF_INET,IPv4协议）
+           int type, 		//socket的类型（一般是SOCK_STREAM，代表是一个端点）
+           int protocol);	//写0就完事
+
+/*
+可以看到，这个函数至少在这里的调用方式十分固定...
+因此常使用getaddressinfo函数自动生成参数
+此外，返回的描述符并不完全打开，不能直接读写
+*/
+
+```
+
+#### 打开文件
+
+上文说到返回的描述符并不能直接读写，因此还要进行打开文件这一特殊步骤
+
+打开的步骤取决于socket是作为client还是server
+
+- **客户端**
+
+	```c
+	#include <sys/socket.h>
+	
+	//成功则返回0，出错返回-1
+	int connect(int clientfd, //上一步中socket函数返回的套接字(文件)描述符
+	            const struct sockaddr* addr, //目标服务端的通用socket地址（一般用
+	            							 //getaddrinfo获取）
+	            socklen_t addrlen	//套接字有效长度
+	           );
+	
+	//这个函数没什么好解释的，它会阻塞进程（一直卡在connet函数等它返回）~
+	//最后一个参数，是因为不同协议的socket长度并不一定一样长（总共留了14byte空间用来存data），因此需要知道有效的大小
+	//不过一般都调用getaddrinfo获取...这个盲猜是系统封装的
+	//客户端只要这一个函数就够啦
+	```
+
+- **服务端**
+
+	```c
+	#include <sys/socket.h>
+	
+	
+	//成功返回0，出错返回-1
+	int bind(int sockfd,
+	         const struct sockaddr* addr,
+	         socklen_t addrlen);
+	//和client的connect函数差不多呢~！
+	//（感觉这个函数命名要好得多啊...毕竟它们都是将套接字文件描述符与套接字地址”绑定（bind）“）
+	//不过注意一点~！这里的addr是和自己的用作服务的套接字绑定呢！
+	
+	
+	//成功返回0，出错返回-1
+	int listen(int sockfd,int backlog);
+	//这个函数的功能也巨简单喔~
+	//不过是将自己的sockfd对应的文件设置成监听（那问题来了，这一步干嘛不放到bind里做呢）
+	//backlog是设置队列的最大长度（如果队列满了，那新来的请求就丢弃了）
+	
+	
+	//成功则返回已连接描述符，出错返回-1
+	int accept(
+		int listenfd,	//已经转成listen的sockfd
+	    struct socketaddr* addr, //这里会填上客户端的socket addr！
+	    int* addrlen //同上同上~
+	);
+	/*
+	返回的是已连接描述符~！
+	服务端通过已连接(文件)描述符与客户端交互~
+	这样只用初始化一个socket就可以进行多次交互了~
+	accept同样会阻塞的~！
+	*/
+	```
+
+	
+
+## Lecture21 Network Programming Part II
