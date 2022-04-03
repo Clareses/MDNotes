@@ -745,7 +745,169 @@ int stat(char* path,struct stat *buf);
 
 ### 封装一个健壮的IO库
 
-**还在写**
+```c
+#include "stddef.h"
+#define MAX_BUF_SIZE 8192
+
+typedef struct
+{
+    int ioFd;                 //file description
+    int ioCnt;                //还未读取的字节数
+    char *ioBufPtr;           //指向buf中还未读取区域的第一个字节
+    char ioBuf[MAX_BUF_SIZE]; //缓冲区
+} IoBuf;
+
+/**
+ * @description: 输出错误信息
+ * @param {char} *message
+ * @return {*}
+ */
+void unixError(char *message);
+
+/**
+ * @description: 从fd文件中读入n个字节到userBuf中
+ * @param {int} fd 文件描述符
+ * @param {void*} userBuf 用户缓冲区
+ * @param {size_t} n 读入文件个数
+ * @return 读入的字节数，错误返回-1
+ */
+int ioReadn(int fd,void* userBuf,size_t n);
+
+/**
+ * @description: 从userBuf中读n个字节写入fd中
+ * @param {int} fd 文件描述符
+ * @param {void*} userBuf 用户缓冲区
+ * @param {size_t} n 写入长度
+ * @return error?-1:写入的字节数
+ */
+int ioWriten(int fd,void* userBuf,size_t n);
+
+/**
+ * @description: 初始化缓冲区
+ * @param {IoBuf*} readBuf 读缓冲区
+ * @param {int} fd 文件描述符
+ * @return {*}
+ */
+void ioReadInitBuf(IoBuf* readBuf,int fd);
+
+/**
+ * @description: 带缓冲读入
+ * @param {IoBuf} ioBuf 输入缓冲区
+ * @param {void*} userBuf 用户缓冲区
+ * @param {size_t} n 读入长度
+ * @return error?-1:读入字节数
+ */
+int ioReadnBuf(IoBuf* ioBuf,void* userBuf,size_t n);
+
+/**
+ * @description: 带缓冲读入行
+ * @param {IoBuf*} ioBuf 读入缓冲区
+ * @param {void*} userBuf 用户缓冲区
+ * @param {size_t} maxn 最大读入长度
+ * @return error?-1:读入字节数
+ */
+int ioReadLineBuf(IoBuf* ioBuf,void* userBuf,size_t maxn);
+```
+
+```c
+#include "LiteIO.h"
+#include "errno.h"
+#include "stdio.h"
+#include "unistd.h"
+
+void unixError(char* message) {
+    fprintf(stderr, "%s : %s", message, strerror(errno));
+}
+
+int ioReadn(int fd, void* userBuf, size_t n) {
+    size_t nLeft = n;      //剩余的未读字节数
+    int readRes;       //记录每次的read返回值
+    char* bufp = userBuf;  //记录缓冲区指针
+    //当没读的值仍大于0时
+    while (nLeft > 0) {
+        readRes = read(fd, bufp, nLeft);
+        if (readRes < 0) {
+            if (errno == EINTR)
+                readRes = 0;
+            else
+                return -1;
+        } else if (readRes == 0) {
+            break;
+        }
+        nLeft -= readRes;
+        bufp += readRes;
+    }
+    //返回读入的个数
+    return n - nLeft;
+}
+
+int ioWriten(int fd, void* userBuf, size_t n) {
+    size_t nLeft = n;
+    char* bufp = userBuf;
+    int writeRes;
+    while (n > 0) {
+        writeRes = write(fd, userBuf, nLeft);
+        if (writeRes < 0) {
+            if (errno == EINTR) {
+                writeRes = 0;
+            } else {
+                return -1;
+            }
+        } else if (writeRes == 0) {
+            break;
+        }
+        nLeft -= writeRes;
+        bufp += writeRes;
+    }
+    return n - nLeft;
+}
+
+void ioReadInitBuf(IoBuf* readBuf, int fd){
+    readBuf->ioFd = fd;
+    readBuf->ioCnt = 0;
+    readBuf->ioBufPtr = readBuf->ioBuf;
+}
+
+//似乎有问题
+int ioReadnBuf(IoBuf* ioBuf, void* userBuf, size_t n){
+    int nleft = n;
+    while(nleft != 1){
+        if(ioBuf->ioCnt != 0){
+            *((char*)userBuf++) = *(ioBuf->ioBufPtr++);
+            ioBuf->ioCnt --;
+            nleft --; 
+        }else{
+            ioBuf->ioCnt = ioReadn(ioBuf->ioFd,ioBuf->ioBuf,MAX_BUF_SIZE);
+            ioBuf->ioBufPtr = ioBuf->ioBuf;
+            if(ioBuf->ioCnt == 0) break;
+            if(ioBuf->ioCnt == -1) return -1;
+        }
+    }
+    *((char*)userBuf) = 0;
+    return n-nleft;
+}
+
+//似乎有问题
+int ioReadLineBuf(IoBuf* ioBuf, void* userBuf, size_t maxn){
+    int nleft = maxn;
+    while(nleft != 1){
+        if(ioBuf->ioCnt != 0){
+            if(*(ioBuf->ioBufPtr) == '\n') break;
+            *((char*)userBuf++) = *(ioBuf->ioBufPtr++);
+            ioBuf->ioCnt --;
+            nleft --; 
+        }else{
+            ioBuf->ioCnt = ioReadn(ioBuf->ioFd,ioBuf->ioBuf,MAX_BUF_SIZE);
+            ioBuf->ioBufPtr = ioBuf->ioBuf;
+            if(ioBuf->ioCnt == 0) break;
+            if(ioBuf->ioCnt == -1) return -1;
+        }
+    }
+    *((char*)userBuf) = 0;
+    return maxn-nleft;
+}
+
+```
 
 ### IO原理
 
@@ -1442,58 +1604,217 @@ int socket(int domain,		//socket的协议族（一般就是AF_INET,IPv4协议）
 
 - **客户端**
 
-	```c
-	#include <sys/socket.h>
-	
-	//成功则返回0，出错返回-1
-	int connect(int clientfd, //上一步中socket函数返回的套接字(文件)描述符
-	            const struct sockaddr* addr, //目标服务端的通用socket地址（一般用
-	            							 //getaddrinfo获取）
-	            socklen_t addrlen	//套接字有效长度
-	           );
-	
-	//这个函数没什么好解释的，它会阻塞进程（一直卡在connet函数等它返回）~
-	//最后一个参数，是因为不同协议的socket长度并不一定一样长（总共留了14byte空间用来存data），因此需要知道有效的大小
-	//不过一般都调用getaddrinfo获取...这个盲猜是系统封装的
-	//客户端只要这一个函数就够啦
-	```
+```c
+#include <sys/socket.h>
+
+//成功则返回0，出错返回-1
+int connect(int clientfd, //上一步中socket函数返回的套接字(文件)描述符
+            const struct sockaddr* addr, //目标服务端的通用socket地址（一般用
+            							 //getaddrinfo获取）
+            socklen_t addrlen	//套接字有效长度
+           );
+
+//这个函数没什么好解释的，它会阻塞进程（一直卡在connet函数等它返回）~
+//最后一个参数，是因为不同协议的socket长度并不一定一样长（总共留了14byte空间用来存data），因此需要知道有效的大小
+//不过一般都调用getaddrinfo获取...这个盲猜是系统封装的
+//客户端只要这一个函数就够啦
+```
 
 - **服务端**
 
-	```c
-	#include <sys/socket.h>
-	
-	
-	//成功返回0，出错返回-1
-	int bind(int sockfd,
-	         const struct sockaddr* addr,
-	         socklen_t addrlen);
-	//和client的connect函数差不多呢~！
-	//（感觉这个函数命名要好得多啊...毕竟它们都是将套接字文件描述符与套接字地址”绑定（bind）“）
-	//不过注意一点~！这里的addr是和自己的用作服务的套接字绑定呢！
-	
-	
-	//成功返回0，出错返回-1
-	int listen(int sockfd,int backlog);
-	//这个函数的功能也巨简单喔~
-	//不过是将自己的sockfd对应的文件设置成监听（那问题来了，这一步干嘛不放到bind里做呢）
-	//backlog是设置队列的最大长度（如果队列满了，那新来的请求就丢弃了）
-	
-	
-	//成功则返回已连接描述符，出错返回-1
-	int accept(
-		int listenfd,	//已经转成listen的sockfd
-	    struct socketaddr* addr, //这里会填上客户端的socket addr！
-	    int* addrlen //同上同上~
-	);
-	/*
-	返回的是已连接描述符~！
-	服务端通过已连接(文件)描述符与客户端交互~
-	这样只用初始化一个socket就可以进行多次交互了~
-	accept同样会阻塞的~！
-	*/
-	```
+```c
+#include <sys/socket.h>
+```
 
-	
+```c
+//成功返回0，出错返回-1
+int bind(int sockfd,
+         const struct sockaddr* addr,
+         socklen_t addrlen);
+//和client的connect函数差不多呢~！
+//（感觉这个函数命名要好得多啊...毕竟它们都是将套接字文件描述符与套接字地址”绑定（bind）“）
+//不过注意一点~！这里的addr是和自己的用作服务的套接字绑定呢！
+```
+
+```c
+//成功返回0，出错返回-1
+int listen(int sockfd,int backlog);
+//这个函数的功能也巨简单喔~
+//不过是将自己的sockfd对应的文件设置成监听（那问题来了，这一步干嘛不放到bind里做呢）
+//backlog是设置队列的最大长度（如果队列满了，那新来的请求就丢弃了）	
+```
+
+```c
+//成功则返回已连接描述符，出错返回-1
+int accept(
+	int listenfd,	//已经转成listen的sockfd
+    struct socketaddr* addr, //这里会填上客户端的socket addr！
+    int* addrlen //同上同上~
+);
+/*
+返回的是已连接描述符~！
+服务端通过已连接(文件)描述符与客户端交互~
+这样只用初始化一个socket就可以进行多次交互了~
+accept同样会阻塞的~！
+*/
+```
+
+#### getaddrinfo & getnameinfo
+
+### 实现Socket编程的辅助函数
+
+```c
+#include <netdb.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int open_clientfd(char* hostname, char* port) {
+    int clientfd;
+    struct addrinfo hints, *listp, *p；
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_NUMERICSERV;
+    hints.ai_flags |= AI_ADDRCONFIG;
+    getaddrinfo(hostname, port, &hints, &listp);
+    for (p = listp; p != NULL; p = p->ai_next) {
+        if ((clientfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) <
+            0) {
+            continue;
+        }
+        if ((connect(clientfd, p->ai_addr, p->ai_addrlen)) != -1)
+            break;
+        close(clientfd);
+    }
+    freeaddrinfo(listp);
+    if (!p) {
+        return -1;
+    } else {
+        return clientfd;
+    }
+}
+
+int open_listenfd(char* port) {
+    int listenfd;
+    int optval = 1;
+    struct addrinfo hints, *listp, *p;
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_NUMERICSERV | AI_PASSIVE;
+    hints.ai_flags |= AI_ADDRCONFIG;
+    getaddrinfo(NULL, port, &hints, &listp);
+    for (p = listp; p != NULL; p = p->ai_next) {
+        listenfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+        if (listenfd < 0)
+            continue;
+        setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(int));
+        if (bind(listenfd, p->ai_addr, p->ai_addrlen) == 0)
+            break;
+        close(listenfd);
+    }
+    freeaddrinfo(listp);
+    if (!p)
+        return -1;
+    if (listen(listenfd, 1024) < 0)
+        return -1;
+    return listenfd;
+}
+```
+
+### 利用Socket+LiteIO实现一个简单的echo服务器
+
+```c
+//服务端代码
+#include "../IO/LiteIO.h"
+#include "./openfd.h"
+#include "stdio.h"
+
+#define maxLen 100
+
+void echo(int connfd) {
+    size_t n;
+    char buf[maxLen];
+    IoBuf myBuf;
+    ioReadInitBuf(&myBuf, n);
+    while ((n = ioReadnBuf(&myBuf, buf, 10)) != 0) {
+        printf("server received %d bytes\n", (int)n);
+        ioWriten(connfd, buf, n);
+    }
+}
+
+int main(int argc, char** argv) {
+    int listenfd;
+    int connfd;
+    socklen_t clientlen;
+    struct sockaddr_storage clientaddr;
+    char client_hostname[maxLen];
+    char client_port[maxLen];
+
+    if (argc != 2) {
+        fprintf(stderr, "usage: %s <port>\n", argv[0]);
+        return 0;
+    }
+
+    listenfd = open_listenfd(argv[1]);
+    while (1) {
+        clientlen = sizeof(struct sockaddr_storage);
+        connfd = accept(listenfd, (struct sockaddr*)&clientaddr, &clientlen);
+        getnameinfo(&clientaddr, clientlen, client_hostname, maxLen,
+                    client_port, maxLen, 0);
+        printf("connect to %s:%s\n", client_hostname, client_port);
+        size_t n;
+        char buf[maxLen];
+        IoBuf myBuf;
+        ioReadInitBuf(&myBuf, n);
+        while ((n = read(connfd, buf, 10)) != 0) {
+            printf("server received %d bytes\n", (int)n);
+            ioWriten(connfd, buf, n);
+        }
+        close(connfd);
+        printf("connect over %s:%s\n", client_hostname, client_port);
+    }
+    return 0;
+}
+```
+
+```c
+//客户端代码
+#include "./openfd.h"
+#include "../IO/LiteIO.h"
+#include "stdio.h"
+
+#define maxLen 100
+
+int main(int argc,char** argv){
+    int clientfd;
+    char* host;
+    char* port;
+    IoBuf myBuf;
+    char buf[maxLen];
+
+    if(argc != 3){
+        fprintf(stderr,"usage: %s <hostname> <port>",argv[0]);
+        return 0;
+    }
+    
+    host = argv[1];
+    port = argv[2];
+
+    clientfd = open_clientfd(host,port);
+
+    ioReadInitBuf(&myBuf,clientfd);
+
+    while(fgets(buf,maxLen,stdin) != NULL){
+        ioWriten(clientfd,buf,strlen(buf));
+        read(clientfd,buf,10);
+        fputs(buf,stdout);
+    }
+    close(clientfd);
+    return 0;
+}
+```
+
+
 
 ## Lecture21 Network Programming Part II
