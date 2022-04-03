@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "socket.h": "c",
+        "cstring": "c",
+        "netdb.h": "c",
+        "sigevent_t.h": "c",
+        "unistd.h": "c",
+        "types.h": "c",
+        "string.h": "c"
+    }
+}
