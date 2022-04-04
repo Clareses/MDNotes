@@ -1815,6 +1815,68 @@ int main(int argc,char** argv){
 }
 ```
 
-
-
 ## Lecture21 Network Programming Part II
+
+### Web基础
+
+- **动态内容与静态内容**
+
+	<img src="../../_Images/image-20220403212549041.png" alt="image-20220403212549041" style="zoom: 50%;" />
+
+- **URL**
+
+	<img src="../../_Images/image-20220403212639074.png" alt="image-20220403212639074" style="zoom:50%;" />
+
+### HTTP请求
+
+HTTP请求的基本格式
+
+​	**请求行 + [0，n ]个请求报头 + 空行**
+
+- **请求行**
+
+	请求行的组成为 **method + URI + version**
+
+	如：GET / HTTP/1.1
+
+	GET为method，/ 为URI，HTTP/1.1是version
+
+- **请求报头**
+
+	为服务器提供额外的信息，如浏览器的商标名或浏览器对哪些MIME提供支持
+
+	格式为： **header-name: header-data**
+
+### HTTP响应
+
+HTTP响应的基本格式
+
+​	**响应行 + [0，n]个响应报头 + 空行 + 响应主体**
+
+- **响应行**
+
+响应行的组成为**version + status-code + status-message**
+
+常见的响应状态码与状态信息
+
+| status-code | status-message |               describe               |
+| :---------: | :------------: | :----------------------------------: |
+|     200     |      成功      |             处理请求无误             |
+|     301     |    永久移动    | 内容已移动到location头中指明的主机上 |
+|     400     |    错误请求    |          服务器不能理解请求          |
+|     403     |      禁止      |       服务器无权访问请求的文件       |
+|     404     |     未发现     |       服务器不能找到请求的文件       |
+|     501     |     未实现     |        服务器不支持请求的方法        |
+|     505     | HTTP版本不支持 |        服务器不支持请求的版本        |
+
+
+
+- **响应报头**
+
+	提供了响应的附加信息，格式与请求报头差不多
+	
+	常用的俩个是
+	
+	- **Content-Type** ：告诉客户端响应主体中内容的MIME类型
+	
+	- **Content-Length**：指示响应主体的字节大小
