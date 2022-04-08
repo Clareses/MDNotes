@@ -1821,11 +1821,11 @@ int main(int argc,char** argv){
 
 - **动态内容与静态内容**
 
-	<img src="../../_Images/image-20220403212549041.png" alt="image-20220403212549041" style="zoom: 50%;" />
+<img src="../../_Images/image-20220403212549041.png" alt="image-20220403212549041" style="zoom: 50%;" />
 
 - **URL**
 
-	<img src="../../_Images/image-20220403212639074.png" alt="image-20220403212639074" style="zoom:50%;" />
+<img src="../../_Images/image-20220403212639074.png" alt="image-20220403212639074" style="zoom:50%;" />
 
 ### HTTP请求
 
@@ -1835,17 +1835,19 @@ HTTP请求的基本格式
 
 - **请求行**
 
-	请求行的组成为 **method + URI + version**
+> 请求行的组成为 **method + URI + version**
+>
+> 如：GET / HTTP/1.1
+>
+> GET为method，/ 为URI，HTTP/1.1是version
 
-	如：GET / HTTP/1.1
 
-	GET为method，/ 为URI，HTTP/1.1是version
 
 - **请求报头**
 
-	为服务器提供额外的信息，如浏览器的商标名或浏览器对哪些MIME提供支持
-
-	格式为： **header-name: header-data**
+> 为服务器提供额外的信息，如浏览器的商标名或浏览器对哪些MIME提供支持
+>
+> 格式为： **header-name: header-data**
 
 ### HTTP响应
 
@@ -1873,10 +1875,10 @@ HTTP响应的基本格式
 
 - **响应报头**
 
-	提供了响应的附加信息，格式与请求报头差不多
-	
-	常用的俩个是
-	
-	- **Content-Type** ：告诉客户端响应主体中内容的MIME类型
-	
-	- **Content-Length**：指示响应主体的字节大小
+> 提供了响应的附加信息，格式与请求报头差不多
+>
+> 常用的俩个是
+>
+> - **Content-Type** ：告诉客户端响应主体中内容的MIME类型
+>
+> - **Content-Length**：指示响应主体的字节大小
