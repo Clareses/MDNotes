@@ -20,6 +20,7 @@ static ssize_t rio_readn(int fd, void *usrbuf, size_t n)
         nleft -= nread;
         bufp += nread;
     }
+    
     return (n - nleft);
 }
 
