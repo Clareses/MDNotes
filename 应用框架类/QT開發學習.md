@@ -139,7 +139,7 @@ int main(int argc,char** argv){
     button.move(250,300);
     label.move(250,200);
     
-    //類所有的signal與slot需要上手冊查詢
+    //類所有的signal與slot需要上手册查詢
     QObject::connect(&button,SIGNAL(clicked(void)),&label,SLOT(close(void)));
     
     parent.show();
