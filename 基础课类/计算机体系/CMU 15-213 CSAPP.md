@@ -658,17 +658,487 @@ int main(){
 
 ### 编译过程
 
-- **预处理**  将一些预处理符号添
+- **预处理**  进行文本处理，如将include的文件内容进行复制、进行一些文本替换等
+- **编译**  将代码编译为汇编语言
+- **汇编**  将汇编代码编译为ELF可重定向文件
+- **链接**  将可重定向文件链接为可执行文件
 
 ### ELF可重定向文件
 
+#### 可重定向文件的结构
+
+<img src="../../_Images/16ea2fff6408380ctplv-t2oaga2asx-zoom-in-crop-mark1304000.webp" alt="img" style="zoom: 50%;" />
+
+可以看到，ELF文件由
+
+- ELF头
+- 程序头部表
+- 多个节
+- 节头部表
+
+共同组成。
+
+接下来，对每个部分读取看看
+
+（介绍一个命令，readelf，可以查看ELF文件喔）
+
+#### test.c文件
+
+下面的文件都是通过该文件编译出来的~
+
+```c
+//test.c
+int globalInit = 10;//已经初始化过的全局变量
+int globalUninit;  //还未初始化的全局变量
+static int staticInit = 11; //已经初始化过的静态变量
+static int staticUninit;  //还未初始化的静态变量
+
+int globalArray[3] = {1,2,3};
+
+int unimplementFunc(int n);
+
+int implementFunc(int a){
+    return a;
+}
+
+int main(){
+    int s = globalArray[1] , k ;
+    k = implementFunc(s);
+    s = unimplementFunc(k);
+	return 0;
+}
+```
+
+#### ELF文件
+
+来看看经过汇编后得到的ELF可重定向文件
+
+```shell
+ELF 头：
+  Magic：  7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00 
+  类别:                              ELF64
+  数据:                              2 补码，小端序 (little endian)
+  Version:                           1 (current)
+  OS/ABI:                            UNIX - System V
+  ABI 版本:                          0
+  类型:                              REL (可重定位文件)
+  系统架构:                          Advanced Micro Devices X86-64
+  版本:                              0x1
+  入口点地址：              0x0
+  程序头起点：              0 (bytes into file)
+  Start of section headers:          760 (bytes into file)
+  标志：             0x0
+  Size of this header:               64 (bytes)
+  Size of program headers:           0 (bytes)
+  Number of program headers:         0
+  Size of section headers:           64 (bytes)
+  Number of section headers:         13
+  Section header string table index: 12
+
+节头：
+  [号] 名称              类型             地址              偏移量
+       大小              全体大小          旗标   链接   信息   对齐
+  [ 0]                   NULL             0000000000000000  00000000
+       0000000000000000  0000000000000000           0     0     0
+  [ 1] .text             PROGBITS         0000000000000000  00000040
+       0000000000000022  0000000000000000  AX       0     0     1
+  [ 2] .rela.text        RELA             0000000000000000  00000228
+       0000000000000030  0000000000000018   I      10     1     8
+  [ 3] .data             PROGBITS         0000000000000000  00000068
+       0000000000000010  0000000000000000  WA       0     0     8
+  [ 4] .bss              NOBITS           0000000000000000  00000078
+       0000000000000004  0000000000000000  WA       0     0     4
+  [ 5] .comment          PROGBITS         0000000000000000  00000078
+       0000000000000013  0000000000000001  MS       0     0     1
+  [ 6] .note.GNU-stack   PROGBITS         0000000000000000  0000008b
+       0000000000000000  0000000000000000           0     0     1
+  [ 7] .note.gnu.pr[...] NOTE             0000000000000000  00000090
+       0000000000000030  0000000000000000   A       0     0     8
+  [ 8] .eh_frame         PROGBITS         0000000000000000  000000c0
+       0000000000000048  0000000000000000   A       0     0     8
+  [ 9] .rela.eh_frame    RELA             0000000000000000  00000258
+       0000000000000030  0000000000000018   I      10     8     8
+  [10] .symtab           SYMTAB           0000000000000000  00000108
+       00000000000000d8  0000000000000018          11     3     8
+  [11] .strtab           STRTAB           0000000000000000  000001e0
+       0000000000000041  0000000000000000           0     0     1
+  [12] .shstrtab         STRTAB           0000000000000000  00000288
+       000000000000006c  0000000000000000           0     0     1
+Key to Flags:
+  W (write), A (alloc), X (execute), M (merge), S (strings), I (info),
+  L (link order), O (extra OS processing required), G (group), T (TLS),
+  C (compressed), x (unknown), o (OS specific), E (exclude),
+  D (mbind), l (large), p (processor specific)
+
+There are no section groups in this file.
+
+本文件中没有程序头。
+
+There is no dynamic section in this file.
+
+重定位节 '.rela.text' at offset 0x228 contains 2 entries:
+  偏移量          信息           类型           符号值        符号名称 + 加数
+00000000000d  000300000004 R_X86_64_PLT32    0000000000000000 implementFunc - 4
+000000000014  000500000004 R_X86_64_PLT32    0000000000000000 unimplementFunc - 4
+
+重定位节 '.rela.eh_frame' at offset 0x258 contains 2 entries:
+  偏移量          信息           类型           符号值        符号名称 + 加数
+000000000020  000200000002 R_X86_64_PC32     0000000000000000 .text + 0
+000000000034  000200000002 R_X86_64_PC32     0000000000000000 .text + 3
+No processor specific unwind information to decode
+
+Symbol table '.symtab' contains 9 entries:
+   Num:    Value          Size Type    Bind   Vis      Ndx Name
+     0: 0000000000000000     0 NOTYPE  LOCAL  DEFAULT  UND 
+     1: 0000000000000000     0 FILE    LOCAL  DEFAULT  ABS test.c
+     2: 0000000000000000     0 SECTION LOCAL  DEFAULT    1 .text
+     3: 0000000000000000     3 FUNC    GLOBAL DEFAULT    1 implementFunc
+     4: 0000000000000003    31 FUNC    GLOBAL DEFAULT    1 main
+     5: 0000000000000000     0 NOTYPE  GLOBAL DEFAULT  UND unimplementFunc
+     6: 0000000000000000    12 OBJECT  GLOBAL DEFAULT    3 globalArray
+     7: 0000000000000000     4 OBJECT  GLOBAL DEFAULT    4 globalUninit
+     8: 000000000000000c     4 OBJECT  GLOBAL DEFAULT    3 globalInit
+
+No version information found in this file.
+
+Displaying notes found in: .note.gnu.property
+  所有者            Data size 	Description
+  GNU                  0x00000020	NT_GNU_PROPERTY_TYPE_0
+      Properties: x86 ISA used: 
+	x86 feature used: x86
+
+```
+
+
+
+#### ELF头
+
+```shell
+ELF 头：
+  Magic：  7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00 
+  类别:                              ELF64
+  数据:                              2 补码，小端序 (little endian)
+  Version:                           1 (current)
+  OS/ABI:                            UNIX - System V
+  ABI 版本:                          0
+  类型:                              REL (可重定位文件)
+  系统架构:                          Advanced Micro Devices X86-64
+  版本:                              0x1
+  入口点地址：              0x0
+  程序头起点：              0 (bytes into file)
+  Start of section headers:          760 (bytes into file)
+  标志：             0x0
+  Size of this header:               64 (bytes)
+  Size of program headers:           0 (bytes)
+  Number of program headers:         0
+  Size of section headers:           64 (bytes)
+  Number of section headers:         13
+  Section header string table index: 12
+```
+
+在ELF文件中，起头的部分就是ELF头，它标志出了如上的重要信息，包括
+
+- **节数**，该elf文件的节数
+- **节头部表偏移量**，它指示了记录了每个节的基本信息的节头部表距离文件开始处的偏移量，这样链接器可以通过它找到每个节的位置
+
+#### 节头部表
+
+该表位于elf文件的末尾，可以通过读取ELF头快速找到它的开始
+
+```shell
+节头：
+  [号] 名称              类型             地址              偏移量
+       大小              全体大小          旗标   链接   信息   对齐
+```
+
+它记录了每个节的这些信息，可以通过它快速找到每个节的具体位置等
+
+#### 节
+
+我们只需要认识并记住以下几个固定节的信息即可
+
+------
+
+##### **.text节**
+
+该节记录了程序编译后的机器码
+
+```shell
+#这是编译后存在.text区里的机器码，最左侧4个数是十六进制标志，方便阅读
+Contents of section .text:
+ 0000 89f8c348 83ec088b 3d000000 00e80000  ...H....=.......
+ 0010 000089c7 e8000000 00b80000 00004883  ..............H.
+ 0020 c408c3                               ...             
+```
+
+反汇编后，可以得到汇编代码
+
+```assembly
+Disassembly of section .text:
+
+#00...是该部分代码的起始位置
+0000000000000000 <implementFunc>:
+   #左侧是地址与16进制表示的机器码  右侧是反汇编得到的汇编代码
+   0:	89 f8                	mov    %edi,%eax
+   2:	c3                   	ret    
+
+0000000000000003 <main>:
+   3:	48 83 ec 08          	sub    $0x8,%rsp
+   7:	8b 3d 00 00 00 00    	mov    0x0(%rip),%edi  #d<main+0xa>
+   d:	e8 00 00 00 00       	call   12 <main+0xf>
+  12:	89 c7                	mov    %eax,%edi
+  14:	e8 00 00 00 00       	call   19 <main+0x16>
+  19:	b8 00 00 00 00       	mov    $0x0,%eax
+  1e:	48 83 c4 08          	add    $0x8,%rsp
+  22:	c3                   	ret    
+
+```
+
+可以看到，.text区里存的就是我们的文件对应的机器码
+
+------
+
+##### **.data节**
+
+该节存储了**已经初始化过的全局变量的值**，代表这些变量真正拥有了一个地址（之后对这个变量的操作就在.data节的对应地址里操作了）
+
+```shell
+Contents of section .data:
+ 0000 01000000 02000000 03000000 0a000000  ................
+```
+
+```c
+int globalInit = 10;//已经初始化过的全局变量
+int globalArray[3] = {1,2,3};
+```
+
+可以看到，对应的值已经写入elf文件中了（小端序），依次是1 2 3 10
+
+------
+
+##### **.bss节**
+
+该节会预留空间（其实并没有分配，而是在加载时候提供信息来映射）给还未初始化的全局变量
+
+------
+
+##### **.symtab**
+
+符号表，下一节详细介绍
+
+------
+
+##### **总结**
+
+- 我们发现，ELF最后会加载到内存中，因此它将每一个部分的值都已经写为了机器码，并分配好了地址。
+- 同时我们发现，静态变量、局部变量会放在寄存器中操作，而不在.data中分配空间
+- 但是也存在一个问题，如果所有的地址都已经确定（每一个变量、每一段机器码），那要如何进行多文件写作呢？这就需要符号表了
+
 ### 符号表
 
-### 链接过程
+符号表是多个ELF文件的粘合剂
 
-### 重定向
+先看看符号表中的内容
+
+```shell
+#offset				 type section size       	 name
+SYMBOL TABLE:
+0000000000000000 l    df  *ABS*	0000000000000000 test.c
+0000000000000000 l    d   .text	0000000000000000 .text
+0000000000000000 g     F  .text	0000000000000003 implementFunc
+0000000000000003 g     F  .text	000000000000001f main
+0000000000000000          *UND*	0000000000000000 unimplementFunc
+0000000000000000 g     O  .data	000000000000000c globalArray
+0000000000000000 g     O  .bss	0000000000000004 globalUninit
+000000000000000c g     O  .data	0000000000000004 globalInit
+
+```
+
+- **offset** 记录在对应节中的偏移量
+- **section** 所在节的位置
+- **name** 符号名称
+- **size** 字节长度
+
+试着验证一些
+
+```assembly
+000000000000000c  O  .data	0000000000000004 globalInit
+#读出，global在.data中被引用，偏移量为0xc
+
+Contents of section .data:
+ 0000 01000000 02000000 03000000 0a000000
+#恰好从0xc开始是globalInit（值为10）的地址
+```
+
+```assembly
+0000000000000000   F .text	0000000000000003 implementFunc
+0000000000000003   F .text	000000000000001f main
+#读出，implementFunc在.text中被引用，偏移量为0
+#     main在.text中被引用，偏移量为0x3
+
+0000000000000000 <implementFunc>:
+   0:	89 f8                	mov    %edi,%eax
+   2:	c3                   	ret    
+
+0000000000000003 <main>:
+   3:	48 83 ec 08          	sub    $0x8,%rsp
+   7:	8b 3d 00 00 00 00    	mov    0x0(%rip),%edi  #d<main+0xa>
+   d:	e8 00 00 00 00       	call   12 <main+0xf>
+  12:	89 c7                	mov    %eax,%edi
+  14:	e8 00 00 00 00       	call   19 <main+0x16>
+  19:	b8 00 00 00 00       	mov    $0x0,%eax
+  1e:	48 83 c4 08          	add    $0x8,%rsp
+  22:	c3                   	ret    
+#确实对上了！
+```
+
+### 符号表解析
+
+#### 强符号与弱符号
+
+强符号指已经初始化过的全局成员，弱符号是还没初始化的全局成员
+
+- 多个强符号——multidefinination
+- 多个弱符号——随机选取一个，不会出错
+- 一个强符号和多个弱符号——弱符号会被解析为强符号的地址
+
+#### 解析原理
+
+- 维护三个集合，E（引用的文件集合），U（未定义符号集合），D（已定义符号集合）
+- 对于每个文件，如果是目标文件，则将它添加到E中，并修改U和D来反映文件中的符号和引用
+- 如果是存档文件，则链接器尝试匹配U中未解析的符号，把需要的目标文件填入E中，修改U和D
+- 如果最后U为空，则代表可以链接成功
+
+### 重定位
+
+重定位分为两步，第一步为**重定位节和符号定义**，第二步是**重定位节中的符号引用**
+
+#### 重定位节和符号定义
+
+该步骤会将所有相同类型的节合为新的节，为它们重新分配地址，并将新地址记录在符号表中
+
+#### 重定位节中的符号引用
+
+该步骤会根据rel.text与rel.data中的重定位条目修改引用的运行时地址，使得程序可以正常运行
+
+#### 样例
+
+我们补一个实现了unimplement函数的文件，并链接成可执行文件
+
+```assembly
+test.c 
+#重定位条目
+RELOCATION RECORDS FOR [.text]:
+OFFSET           TYPE              VALUE 
+0000000000000009 R_X86_64_PC32     globalArray
+000000000000000e R_X86_64_PLT32    implementFunc-0x04
+0000000000000015 R_X86_64_PLT32    unimplementFunc-0x04
+
+
+#汇编代码
+Disassembly of section .text:
+
+0000000000000000 <implementFunc>:
+   0:	89 f8                	mov    %edi,%eax
+   2:	c3                   	ret    
+
+0000000000000003 <main>:
+   3:	48 83 ec 08          	sub    $0x8,%rsp
+   7:	8b 3d 00 00 00 00    	mov    0x0(%rip),%edi  #d <main+0xa>
+			9: R_X86_64_PC32	globalArray
+			#这条与上面的重定位条目相同含义，是objdump为了方便阅读而加的
+			#意思是：在地址偏移为9的地方，有一个绝对寻址重定向
+			#此时会将从地址0x9开始的值变为符号表中globalArray记录的地址填入
+   d:	e8 00 00 00 00       	call   12 <main+0xf>
+			e: R_X86_64_PLT32	implementFunc-0x4
+			#意思是：在地址偏移为e的地方，有一个相对寻址重定向
+			#此时会将从地址0xe开始的值改为(implementFunc-0x4)-%rip的值
+			#这里有一个误区，需要特别注意call imm用的是相对寻址
+  12:	89 c7                	mov    %eax,%edi
+  14:	e8 00 00 00 00       	call   19 <main+0x16>
+			15: R_X86_64_PLT32	unimplementFunc-0x4
+  19:	b8 00 00 00 00       	mov    $0x0,%eax
+  1e:	48 83 c4 08          	add    $0x8,%rsp
+  22:	c3                   	ret  
+```
+
+```assembly
+func.c
+SYMBOL TABLE:
+0000000000000000 l    df *ABS*	0000000000000000 func.c
+0000000000000000 l    d  .text	0000000000000000 .text
+0000000000000000 g     F .text	0000000000000003 unimplementFunc
+
+Disassembly of section .text:
+
+0000000000000000 <unimplementFunc>:
+   0:	89 f8                	mov    %edi,%eax
+   2:	c3                   	ret  
+```
+
+```assembly
+#可执行文件，仅保留部分有用内容
+res：     文件格式 elf64-x86-64
+
+SYMBOL TABLE:
+0x0402c l     O .data	0x00004     staticInit
+0x04044 l     O .bss	0x00004     staticUninit
+0x01157 g     F .text	0x0000c     unimplementFunc
+0x04040 g     O .bss	0x00004     globalUninit
+0x04030 g     O .data	0x0000c     globalArray
+0x01125 g     F .text	0x00032     main
+0x04028 g     O .data	0x00004     globalInit
+0x01119 g     F .text	0x0000c     implementFunc
+
+Contents of section .data:
+ 4018 00000000 00000000 20400000 00000000  ........ @......
+ 4028 0a000000 0b000000 01000000 02000000  ................
+ 4038 03000000                             ....    
+
+Disassembly of section .text:
+0000000000001119 <implementFunc>:
+    1119:	55                   	push   %rbp
+    111a:	48 89 e5             	mov    %rsp,%rbp
+    111d:	89 7d fc             	mov    %edi,-0x4(%rbp)
+    1120:	8b 45 fc             	mov    -0x4(%rbp),%eax
+    1123:	5d                   	pop    %rbp
+    1124:	c3                   	ret    
+
+0000000000001125 <main>:
+    1125:	55                   	push   %rbp
+    1126:	48 89 e5             	mov    %rsp,%rbp
+    1129:	48 83 ec 10          	sub    $0x10,%rsp
+    112d:	8b 05 01 2f 00 00    	mov    0x2f01(%rip),%eax
+    1133:	89 45 f8             	mov    %eax,-0x8(%rbp)
+    1136:	8b 45 f8             	mov    -0x8(%rbp),%eax
+    1139:	89 c7                	mov    %eax,%edi
+    113b:	e8 d9 ff ff ff       	call   1119 <implementFunc>
+    1140:	89 45 fc             	mov    %eax,-0x4(%rbp)
+    1143:	8b 45 fc             	mov    -0x4(%rbp),%eax
+    1146:	89 c7                	mov    %eax,%edi
+    1148:	e8 0a 00 00 00       	call   1157 <unimplementFunc>
+    114d:	89 45 f8             	mov    %eax,-0x8(%rbp)
+    1150:	b8 00 00 00 00       	mov    $0x0,%eax
+    1155:	c9                   	leave  
+    1156:	c3                   	ret    
+
+0000000000001157 <unimplementFunc>:
+    1157:	55                   	push   %rbp
+    1158:	48 89 e5             	mov    %rsp,%rbp
+    115b:	89 7d fc             	mov    %edi,-0x4(%rbp)
+    115e:	8b 45 fc             	mov    -0x4(%rbp),%eax
+    1161:	5d                   	pop    %rbp
+    1162:	c3                   	ret    
+
+```
+
+可以看到，它们的地址都已经改为了正确的地址
 
 ### ELF可执行文件
+
+ELF可执行文件中有程序头部表，可以告知内存如何映射自己
+
+最终，在虚拟内存中，出现了熟悉的内存结构
 
 ## Lecture13 Exceptions & Processes
 
