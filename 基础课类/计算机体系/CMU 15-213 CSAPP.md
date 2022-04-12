@@ -656,6 +656,20 @@ int main(){
 
 ## Lecture12 Linking
 
+### 编译过程
+
+- **预处理**  将一些预处理符号添
+
+### ELF可重定向文件
+
+### 符号表
+
+### 链接过程
+
+### 重定向
+
+### ELF可执行文件
+
 ## Lecture13 Exceptions & Processes
 
 ## Lecture14 Signal & Nonlocal Jump
