@@ -1136,9 +1136,13 @@ Disassembly of section .text:
 
 ### ELF可执行文件
 
+<img src="../../_Images/image-20220412215121397.png" alt="image-20220412215121397" style="zoom:50%;" />
+
 ELF可执行文件中有程序头部表，可以告知内存如何映射自己
 
 最终，在虚拟内存中，出现了熟悉的内存结构
+
+<img src="../../_Images/image-20220412215103181.png" alt="image-20220412215103181" style="zoom:50%;" />
 
 ## Lecture13 Exceptions & Processes
 
