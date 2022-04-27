@@ -332,7 +332,107 @@ fn test_str(mut s1:String)->String{
 
 #### 引用与借用
 
-在rust中的引用，更类似于指针的概念了
+可是如果**只是想使用这个变量**，而**不希望它的所有权转移**（所有权转移，如果想转回本体身上，则还需要返回值赋值给它本身...），则可以利用Rust提供的引用语法
 
-在参数中传递引用，类似于传递指针，自然有一定的限制（指针也有常引用指针等分类）
+```rust
+//不使用引用，来避免所有权转移
+fn main(){
+    let mut s0 = String::from("hello");
+    let s0 = test_str(s0);//所有权转移后又转移回s0
+    println!("{}",s0);
+}
 
+fn test_str(s1:String)->String{
+    println!("{}",s1);
+    return s1;
+}
+//这样的写法繁琐而复杂
+```
+
+Rust中的引用，更类似于指针的概念了，在参数中传递引用，类似于传递指针，自然有一定的限制（指针也有常引用指针等分类）
+
+```rust
+fn main(){
+    let s0 = String::from("hello");
+    test_str(&s0);//传递s0的引用
+    println!("{}",s0);//s0依然可用
+}
+
+fn test_str(s1:&String){
+    println!("{}",s1);//接收引用并使用而不改变所有权
+}
+```
+
+引用同样有两种类型
+
+- **mut &Type** 可变引用，可以理解为一般的指针。注意，可变引用的本体也必须可变。
+- **&Type** 不可变引用，理解为const修饰的指针
+
+```rust
+fn main(){
+    let mut s0 = String::from("hello");
+    let immut_quote_s0 = &s0;	//创建了一个不可变引用
+    let mut_quote_s0 = &mut s0; //创建了一个可变引用
+    //这里的写法是有问题的，不可以同时拥有可变和不可变引用
+}
+//需要注意的是，引用的可变性表示引用指向的位置的可变性，而引用本身并不需要运算（不像指针那样可以++--...），如果写了一个let mut x = &mut y；会有warning提醒说x不需要mut
+```
+
+```rust
+//下面的程序输出为 hello world
+fn main(){
+    let mut s0 = String::from("hello");
+    test_quote_func(&mut s0);
+    println!("{}", s0);   
+}
+
+fn test_quote_func(s: &mut String){
+    s.push_str(" world");
+}
+```
+
+**但是对于可变引用，有一个重要的限制！**
+
+**即一个作用域中，对同一块数据，只能有一个可变引用！**
+
+或者说，对同一块数据，只能同时有一个可变引用处于有效状态
+
+这样的机制可以避免数据竞争
+
+> **数据竞争**
+>
+> 满足以下三个条件即有可能发生数据竞争
+>
+> - 两个或多个指针访问同一个数据
+> - 至少有一个指针用于写入数据
+> - 没有使用任何机制来同步对数据的访问
+
+**不可以同时拥有一个可变引用和一个不可变引用！**
+
+#### 切片
+
+由于字符串记录在堆上，如果每次需要使用字符串的某个子串时，都在堆上创建一个新的空间，那将十分麻烦且浪费。而根据数据只能对应一个变量的原则，又不能使用另外一个新的字符串指向同一块空间。因此，rust提供了一种**切片（slice）**机制，**使用一种特殊的类型，用以引用字符串的一个子串部分**。
+
+```rust
+//函数的功能是返回字符串的第一个单词
+fn main(){
+    let s = String::from("Hello world");
+    let index = get_first_word_index(&s);
+    println!("{}", index);
+}
+
+//注意返回值类型的写法，可以发现平时写的str常量就是这个类型
+fn get_first_word_index(str: &str) -> &str{	
+    let bytes = str.as_bytes();
+    for (i, &item) in bytes.iter().enumerate(){
+        if item == b' '{
+            return &str[0..i];
+        }
+    }
+    &str[..]
+}
+```
+
+在涉及字符串处理的函数时，使用字符串切片可以使函数的泛用性更广（既可以接受字面值参数（&str），也可以接受字符串（String， 整个转成&str即可））
+
+**除了字符串以外，很多别的类型也有切片，比如数组**
