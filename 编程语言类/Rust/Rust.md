@@ -436,3 +436,297 @@ fn get_first_word_index(str: &str) -> &str{
 在涉及字符串处理的函数时，使用字符串切片可以使函数的泛用性更广（既可以接受字面值参数（&str），也可以接受字符串（String， 整个转成&str即可））
 
 **除了字符串以外，很多别的类型也有切片，比如数组**
+
+## 结构体
+
+### 定义与使用
+
+```rust
+//定义，可以看出与其他编程语言大差不差...
+struct my_struct{
+    i32_member:i32,
+    String_member:String,
+    f32_member:f32,
+    bool_member:bool,
+}
+
+fn main(){
+    //构造，rust中取消了构造函数，处理起来和C的直接赋值差不多
+    let m_struct = my_struct{
+      	i32_member:523,
+        String_member:String::from("this is a String"),
+        f32_member:77.3,
+        bool_member:true,
+    };
+    
+    //对于复制构造，rust提供了一种“更新”语法
+    let m2_struct = my_struct{
+        //更新的值
+        i32_member:224,
+        //其他的采用与m_struct一样的语法
+        ..m_struct
+    	//需要注意的是，没有实现copy traits的成员
+        //（如String_member）会发生所有权转移
+        //（在这之后访问m_struct.String_member会报错）
+    };
+    
+    //数据成员的访问，与其他语言一样
+    println!("{}",m2_struct.i32_member);
+}
+```
+
+> 结构体中的成员可变性取决于结构体变量在绑定时的可变性
+
+### Example
+
+```rust
+//又是典中典的计算长方形面积
+struct Square{
+    x: i32,
+    y: i32,
+}
+
+fn get_area(s:&Square)->i32{
+    s.x*s.y
+}
+
+fn main(){
+    let my_s = Square{
+        x:10,
+        y:10,
+    };
+    println!("The Area is {}",get_area(&my_s));
+}
+```
+
+### 为struct实现方法
+
+rust里也提供了将struct与函数绑定的机制，绑定的函数被叫做方法
+
+```rust
+//像这样，就为Rectangle类提供了
+
+#[derive(Debug)]
+struct Rectangle{
+    width:u32,
+    length:u32,
+}
+
+impl Rectangle {
+    
+    //模拟了一个构造函数，用结构体名::方法名调用
+    fn build(width:u32,length:u32) -> Rectangle{
+        Rectangle { width, length }
+    }
+
+    //参数列表里的第一个参数为&self的可以直接用对象调用
+    fn get_area(&self)->u32{
+        self.width*self.length
+    }
+}
+
+fn main(){
+    let rec = Rectangle::build(10, 20);
+    println!("{}",rec.get_area());
+}
+```
+
+## 枚举
+
+Rust里的枚举与C语言中的枚举有一定的差别，更类似于C中联合体与枚举体的结结合
+
+### 定义与使用
+
+```rust
+enum WebEvent{
+    //可以像一般的枚举一样使用
+    PageLoad,
+    PageUnload,
+    //但是还有附加的功能，那就是像联合体一样绑定类型
+    KeyPress(char),
+    Click(i32,i32),//绑定类型可以用元组
+    Move{begin:i32,end:i32},//也可以用结构体
+}
+
+//枚举体的使用
+fn inspect(event:WebEvent){
+    match event{
+        WebEvent::PageLoad => print!("PageLoad"),
+        WebEvent::Click(x,y) => print!("{}{}",x,y),
+        default => (),
+    }
+}
+
+//可以看见，rust中的枚举体可以轻松地模拟C中的枚举体
+//此外，还可以让枚举体附带一些数据，更具有灵活性
+fn main(){
+    let event = WebEvent::Click(10,12);
+    inspect(event);
+}
+```
+
+### 枚举方法
+
+枚举体作为一个类型，同样可以有自己的方法，同样使用impl关键字
+
+```rust
+//将上面一个写法修改为枚举体内方法
+
+enum WebEvent{
+    PageLoad,
+    PageUnload,
+    KeyPress(char),
+    Click(i32,i32),
+    Move{begin:i32,end:i32},
+}
+
+
+impl WebEvent {
+    fn inspect(&self){
+        match self {
+            WebEvent::PageLoad => println!("PageLoad"),
+            WebEvent::PageUnload => println!("PageUnload"),
+            WebEvent::Click(x, y) => 
+            	println!("Click ({},{})",x,y),
+            default => (),
+        }
+    }
+}
+
+fn main(){
+    let event = WebEvent::Click(10, 10);
+    event.inspect();
+}
+```
+
+### NULL的改进——Option枚举
+
+在Cpp或其他编程语言中，经常会出现这样一个错误
+
+```cpp
+String a = NULL;
+String b = "aa";
+b = a + b;	//这里会带来错误（NULL是空值，不能运算）
+```
+
+而Rust采用将NULL与一般类型区分开的方式
+
+```rust
+//这是Rust标准库中提供的支持
+enum Option<T>{
+    //some成员代表不是空值
+    some(T),
+    None,
+}
+
+impl Option<T>{
+    //解封装
+    fn unwrap(&self)->T;
+    //是否有效
+    fn is_some(&self)->bool;
+    //是否为空
+    fn is_none(&self)->bool;
+}
+```
+
+```rust
+fn main(){
+    let a = some(10);
+    let b: Option<i32> = None;//这样就可以声明一个空的i32类型
+    //需要注意的是，Option<T>与T并不是同一个类型
+    //因此在运算前必须要进行转换，这样对于空值的处理就更完整了
+    let c = 3;
+    let d = a + c;//这里会报错，因此a和c不是同一个类型，需要转化
+    let d = a.unwrap() + c;//这就可以了
+}
+```
+
+这种设计强制开发者无法忽视数据为空时的情况...因为必须做一个转换
+
+### Match表达式
+
+```rust
+match expression {
+    pattern1 => expression,
+    ....
+    default => expression,
+}
+//其中每个pattern对应的expression就是match表达式的值
+```
+
+```rust
+fn main(){
+    let a = 10;
+    let b = match a {
+        10 => true,
+        default => {
+            println!("值不对！");
+            false
+        },
+    };
+    println!("{}",b);
+}
+```
+
+特别地，对于绑定了数据的枚举体，match可以从中提取出对应的值
+
+```rust
+enum HttpRequest{
+    Get(String),
+    Post(String),
+}
+
+impl HttpRequest{
+    fn parse(&self){
+        match self{
+            //Get和Post附加的值被提取到s中了
+            HttpRequest::Get(s) => println!("{}",s),
+            HttpRequest::Post(s) => println!("{}",s),
+        }
+    }
+}
+
+fn main(){
+    let request = HttpRequest::Get(
+        String::from("HTTP1.1 / GET")
+    );
+    request.parse();
+}
+```
+
+match必须穷举所有的可能性
+
+### if let
+
+if let用于仅匹配一种情况时的处理
+
+```rust
+if let pattern = expression {
+    expression
+}else{
+    expression
+}
+```
+
+```rust
+enum HttpRequest{
+    Get(String),
+    Post(String),
+}
+
+fn main(){
+    let request = HttpRequest::Get(
+        String::from("HTTP1.0 / GET"));
+    //这里只匹配了一种情况，但是却需要多写一个_
+    // match request{
+    //     HttpRequest::Get(&s) => println!("{}",s),
+    //     _ => (),
+    // }
+    //改用if let
+    if let HttpRequest::Get(s) = request {
+        println!("{}",s)
+    }
+	//注意和if的不同在于，它可以模式匹配，提取出enum的值
+}
+```
+
