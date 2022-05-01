@@ -1043,3 +1043,115 @@ use std::f64::consts::PI;
 ```
 
 运行结果：所有的系统库模块都是被默认导入的，所以在使用的时候只需要使用 use 关键字简化路径就可以方便的使用了。
+
+## Rust错误处理
+
+Rust提供了一个可以进行错误处理的枚举类——Result枚举
+
+```rust
+enum Result<T,E>{
+    Ok(T),
+    Err(E),
+}
+//返回Result类型的函数，如果操作成功，会返回T类型的结果
+//如果操作失败，会返回E类型的错误
+```
+
+### 对错误进行匹配处理
+
+```rust
+use std::fs::File;
+
+fn main(){
+    //尝试打开文件
+    let file = File::open("./a.txt");
+    let file = match file { //对结果进行匹配
+        Ok(fd) => fd,	//如果是Ok,返回文件描述符
+        Err(errt)=>{	//如果是Err
+            match File::create("./a.txt") {	//尝试创建文件并匹配
+                Ok(fd) => fd,	//返回文件描述符号
+                Err(errt) => {	//输出错误
+                    panic!("创建失败")
+                }
+            }
+        }
+    };
+}
+
+//这种处理很长很繁琐...
+```
+
+```rust
+//为此，Rust提供了几个函数和运算符用于简化处理的过程
+
+//self是Result,unwrap会提取出正确时的值，输出错误时的类型（固定）
+fn unwrap(self) -> T;
+
+//expect会返回正确时的值，错误时输出传进去的参数&str
+fn expect(self, msg: &str) -> T；
+
+//unwrap_
+```
+
+### 匹配不同类型的错误
+
+```rust
+use std::{fs::File, io::ErrorKind};
+
+fn main(){
+    let file = File::open("./a.txt");
+    let file = match file {
+        Ok(fd) => fd,
+        Err(error) => match error.kind(){ //通过error.kind方法获取类型
+            ErrorKind::NotFound => match File::create("a.txt") {
+                Ok(fd) => fd,
+                Err(error) => panic!("失败")
+            },
+            _ => panic!("失败")
+        }
+    };
+}
+```
+
+### 错误的传播
+
+所谓的错误传播...就是调用了一个返回Result的函数后对Result进行处理并也返回一个Result...
+
+```rust
+use std::{io::{self, Read}, fs::File};
+
+fn read_from_file(path:&str) -> Result<String, io::Error> {
+    let file = File::open(path);
+    let mut file = match file {
+        Ok(res) => res,
+        Err(err) => return Err(err),//直接返回错误
+    };
+    let mut result: String = String::new();
+    match file.read_to_string(&mut result) {
+        Ok(s) => Ok(result),//返回用Result包裹的字符串结果
+        Err(err) => Err(err),//直接返回错误
+    }
+}
+
+```
+
+同样很繁琐...rust提供了？运算符用于处理错误的传递
+
+```rust
+//修改后
+use std::{io::{self, Read}, fs::File};
+
+fn read_from_file(path:&str) -> Result<String, io::Error> {
+    //如果open失败，则直接返回Error
+    let mut file = File::open(path)?;
+    let mut result: String = String::new();
+    //read失败，返回Error
+    file.read_to_string(&mut result)?;
+    //都成功了，返回result
+    Ok(result)
+}
+
+//注意？运算符只能用于返回Result的函数之中
+```
+
+## 泛型
