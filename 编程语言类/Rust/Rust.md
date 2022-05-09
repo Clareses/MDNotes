@@ -1154,4 +1154,112 @@ fn read_from_file(path:&str) -> Result<String, io::Error> {
 //注意？运算符只能用于返回Result的函数之中
 ```
 
-## 泛型
+## 泛型与trait
+
+### 泛型的使用
+
+```rust
+//在函数中
+fn function<T>(paramList) -> returnType;
+
+//结构体中
+struct name<T>;
+
+//枚举体中
+enum name<T>;
+
+//在方法实现中
+impl<T> name<T>{
+    //实现
+}
+
+//也可以为具体类型实现
+impl name<i32>{
+    //为i32特殊实现的方法体
+}
+```
+
+### trait的使用
+
+Trait类似于其他编程语言中的虚基类
+
+```rust
+//trait的定义
+trait name{
+    //trait中的方法
+    fn method(&self) -> type;
+}
+
+//为其他类型实现trait
+impl traitname for typename{
+    //实现的方法
+}
+```
+
+```rust
+//拿小竹作业练手
+pub trait Goods{
+    fn to_string(&self) -> String;
+}
+
+struct ElecApp{
+    name  : String,
+    price : i32,
+    weight: i32,
+}
+
+struct Cloth{
+    name  : String,
+    price : i32,
+    color : String,
+}
+
+impl Goods for ElecApp{
+    fn to_string(&self) -> String {
+        let mut res = self.name.clone();
+        res.push_str(&self.price.to_string());
+        res.push_str(&self.weight.to_string());
+        return res;
+    }
+}
+
+impl Goods for Cloth{
+    fn to_string(&self) -> String {
+        let mut res = self.name.clone();
+        res.push_str(&self.price.to_string());
+        res.push_str(&self.color);
+        return res;
+    }
+}
+```
+
+### 将trait作为参数
+
+```rust
+//使用impl Trait
+fn test(x : impl display){}
+
+//使用trait bound
+fn test<T: display> (x : T){}
+
+//使用“+”指定多个trait
+fn test<T: display + comp> (x : T){}
+fn test(x: impl display + comp){}
+
+//使用 where子句 指定多个trait
+fn test(T, U)
+where
+	T: display,
+	U: comp + debug,
+{}
+```
+
+### 将trait作为返回值
+
+```rust
+//使用impl trait
+fn test() -> impl display{}
+
+//用trait bound似乎不行，已经shi gu
+```
+
