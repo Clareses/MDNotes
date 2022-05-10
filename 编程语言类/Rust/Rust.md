@@ -1263,3 +1263,334 @@ fn test() -> impl display{}
 //用trait bound似乎不行，已经shi gu
 ```
 
+## 闭包
+
+### 什么是闭包（Closure）
+
+**闭包就是可以捕获其所在环境的匿名函数**
+
+闭包具有以下性质
+
+- 是**匿名函数**
+- 可以**保存为变量**，可以**用作参数**
+- 可以在一个地方创建闭包，在**另一个地方调用闭包**来完成运算
+- 可以**从它定义的作用域捕获值**
+
+### 闭包的语法
+
+```rust
+let func_closure = |paramList| -> Type {
+	func_body;    
+};
+```
+
+- 闭包不强制要求标注参数类型与返回值类型
+
+- 闭包通常短小，只在狭小的上下文中工作
+
+### 利用泛型与Fn Trait保存闭包
+
+涉及一种设计模式——**记忆化（Memoization）**或**延迟计算（Lazy Evaluation）**
+
+有以下需要注意的问题
+
+- **每个闭包都有自己唯一的匿名类型，即使两个闭包的签名完全一样**
+
+因此，需要使用泛型与Trait Bound
+
+#### Fn Trait
+
+由标准库提供、所有闭包都至少实现以下trait之一 
+
+- Fn
+- FnMut
+- FnOnce
+
+#### 示例
+
+```rust
+struct Cacher<T: Fn(i32)->i32 >{
+    closure: T,
+    cache_value: Option<i32>,
+}
+
+impl<T> Cacher<T> 
+where
+    T: Fn(i32)->i32,//使用了Fn Trait
+{
+    fn new(closure: T) -> Cacher<T>{
+        Cacher { closure: closure, cache_value: None }
+    }
+
+    //实现了记忆化
+    fn get_value(&mut self, param: i32) -> i32 {
+        match self.cache_value {
+            Some(v) => v,
+            None => {
+                let v = (self.closure)(param);
+                self.cache_value = Some(v);
+                v
+            },
+        }
+    }
+}
+
+//使用样例
+fn main(){
+    let mut closure = |x:i32| -> i32{ x + 1 };
+    let mut cacher = Cacher::new(closure);
+    let value = cacher.get_value(10); 
+}
+```
+
+这个样例中，也可以使用HashMap来缓存多个值，或是使用一些置换算法来实现优化
+
+### 用闭包捕获上下文
+
+即闭包中可以访问到作用域上文中的其他符号
+
+进行这样的操作，会导致额外的性能开销
+
+## 迭代器
+
+迭代器在Cpp中已经有了解，用于遍历容器（Cpp中的迭代器相当于一种智能指针）
+
+rust中提供的迭代器也是用于这个作用的
+
+### iterator trait
+
+```rust
+pub trait iterator{
+    type item;
+    
+    //iterator trait中最重要的方法，用于返回迭代器的下一个地址
+    fn next(&mut self) -> Option<self::item>;
+}
+```
+
+### 迭代器的获取
+
+实现了迭代器的容器提供三个获取迭代器的方法
+
+```rust
+fn main(){
+	let mut vec = vec![1,2,3,4,5];
+    //iter(),用于获取不可变引用
+    for i in vec.iter(){}	//这里的i的类型是&i32
+    //into_iter(),用于获取所有权
+    for i in vec.into_iter(){} //这里i的类型为i32，并且在这之后vec会move
+    //iter_mut(),用于获取可变引用
+    for i in vec.iter_mut(){}  //这里i的类型为&mut i32
+}
+```
+
+### 迭代器的消耗
+
+不断调用迭代器的next()，将会导致迭代器不断往下一个元素“消耗”，而当迭代器走到尽头，这个迭代器也就“用完了”
+
+iterator trait也实现了一部分使用迭代器的方法（如sum等），这些方法会获取迭代器的所有权并消耗迭代器进行一些固定的操作
+
+### 其他迭代器方法
+
+```rust
+fn main(){
+    let v1 = vec![1,2,3,4];
+    
+    let v2: Vec<_> = v1.iter().map(|x| x+1).collect();
+    
+    //这里的map就是一个产生其他迭代器的方法，它会将迭代器转换成另一种迭代器（根据传递进去的闭包）
+    //collect将map产生的迭代器收集并放入指定的容器中
+}
+```
+
+### 迭代器与闭包结合
+
+```rust
+fn main(){
+    let v1 = vec![1,2,3,4];
+    //filter函数是一个消耗迭代器函数，将对迭代器中的每个元素调用闭包，并根据闭包的返回值（bool）判断是否加入返回的迭代器中
+    
+    let v2: Vec<_> = v1.into_iter().filter(|x| *x>2).collect();
+    
+    //v2中会有所有大于2的元素的值
+}
+```
+
+### 使用iterator trait创建自定义迭代器
+
+```rust
+struct Counter{
+    cnt: i32,
+}
+
+impl Iterator for Counter {
+    type Item = i32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.cnt += 1;
+        if self.cnt == 5 {
+            None
+        } else {
+            Some(self.cnt)
+        }
+    }
+}
+
+fn main(){
+    let mut vec = vec![1,2,3,4,5];
+    let v2:Vec<_> = vec.into_iter().collect();
+}
+```
+
+## 项目--GREP
+
+### 预备知识
+
+```rust
+//该函数用于获取一个命令行参数，并返回一个对应的迭代器
+std::env::args()
+
+//文件读取，返回一个字符串
+std::fs::read_to_string()
+
+```
+
+### 实现命令行参数与文件的读取
+
+```rust
+fn main() {
+    //读取命令行参数
+    let args: Vec<String> = std::env::args().collect();
+    //获取参数
+    let arg_target = &args[1];
+    let arg_file_path = &args[2];
+    //读取文件内容
+    let content = std::fs::read_to_string(arg_file_path)
+    .expect("filename error");
+
+    println!("Open file {}",arg_file_path);
+    println!("Search target {}", arg_target);
+    println!("the content is \n {}", content);
+}
+```
+
+> 这部分代码存在以下问题
+>
+> - 逻辑太过集中：main函数既负责了逻辑处理又负责了输入处理
+>
+> - 参数分散：参数并不是分散的变量，而是有关联的
+> - 错误处理不够完善：只打印出了错误信息
+> - 错误处理分散：后期维护难度大
+
+### 重构
+
+#### 重构的指导性原则
+
+- 将程序拆分为main.rs与lib.rs，将业务逻辑放入lib.rs
+- 当命令行解析逻辑较少时，也可以将它放入main.rs
+- 当命令行解析逻辑复杂时，还是将它放入lib.rs中
+
+#### 业务逻辑提取
+
+```rust
+struct Config{
+    query: String,
+    filename: String,
+}
+
+impl Config{
+    fn new(args: &[String]) -> Config {
+        Config{ query: args[1].clone(), filename: args[2].clone()}
+    }
+}
+
+fn main(){
+    let args: Vec<String> = std::env::args().collect();
+    let config = Config::new(&args);
+    let content = std::fs::read_to_string(config.filename);
+}
+```
+
+#### 错误处理
+
+```rust
+use std::{process::exit};
+
+struct Config{
+    query: String,
+    filename: String,
+}
+
+impl Config{
+    //修改返回值，返回一个Result
+    fn new(args: &[String]) -> Result<Config, &'static str> {
+        if args.len() < 3 {
+            return Err("Too Less Arguments")
+        }
+        let config = Config{ 
+            query: args[1].clone(),filename: args[2].clone(),
+        };
+        Ok(config)
+    }
+}
+
+fn main(){
+    let args: Vec<String> = std::env::args().collect();
+    //采用外部处理的方式处理错误
+    let config = Config::new(&args).unwrap_or_else(|err|{
+       println!("Parsing Arguments Error:{}",err);
+       exit(1);
+    });
+    let content = std::fs::read_to_string(config.filename);
+}
+```
+
+#### 提取业务逻辑并进行错误处理
+
+```rust
+//main.rs
+use std::{process::exit};
+use rust_test::Config;
+use rust_test::run;
+
+//main中仅剩下简单的参数解析与错误处理
+fn main(){
+    let args: Vec<String> = std::env::args().collect();
+    let config = Config::new(&args).unwrap_or_else(|err|{
+       println!("Parsing Arguments Error:{}",err);
+       exit(1);
+    });
+    if let Err(e) = run(config) {
+        println!("Run Error: {}",e);
+        exit(1);
+    }
+}
+```
+
+```rust
+//lib.rs
+//lib中执行大部分的业务逻辑
+pub struct Config{
+    query: String,
+    filename: String,
+}
+
+impl Config{
+    pub fn new(args: &[String]) -> Result<Config, &'static str> {
+        if args.len() < 3 {
+            return Err("Too Less Arguments")
+        }
+        let config = Config{ 
+            query: args[1].clone(),filename: args[2].clone(),
+        };
+        Ok(config)
+    }
+}
+
+pub fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
+    let content = std::fs::read_to_string(config.filename)?;
+    println!("With text:{}", content);
+    Ok(())
+}
+```
+
