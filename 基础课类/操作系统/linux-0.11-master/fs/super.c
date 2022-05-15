@@ -29,8 +29,9 @@ void wait_for_keypress(void);
 // 用于根据进位标志CF设置操作数%al.如果CF=1，则%al=1,否则%al=0.
 #define set_bit(bitnr,addr) ({ \
 register int __res ; \
-__asm__("bt %2,%3;setb %%al":"=a" (__res):"a" (0),"r" (bitnr),"m" (*(addr))); \
-__res; })
+// __asm__("bt %2,%3;setb %%al":"=a" (__res):"a" (0),"r" (bitnr),"m" (*(addr))); \
+// __res; })\
+
 
 // 超级块结构表数组（NR_SUPER = 8）
 struct super_block super_block[NR_SUPER];

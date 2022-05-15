@@ -1,16 +1,12 @@
 ;
 ;	setup.s		(C) 1991 Linus Torvalds
 ;
-; setup.s is responsible for getting the system data from the BIOS,
-; and putting them into the appropriate places in system memory.
-; both setup.s and system has been loaded by the bootblock.
+; setup.s用于从BIOS获取到系统需要的硬件数据，并将数据写入系统内存中固定的位置
+; setup.s和system都是由bootsect从磁盘中载入内存的
 ;
-; This code asks the bios for memory/disk/other parameters, and
-; puts them in a "safe" place: 0x90000-0x901FF, ie where the
-; boot-block used to be. It is then up to the protected mode
-; system to read them from there before the area is overwritten
-; for buffer-blocks.
-;
+; 这段代码通过调用BIOS中断，获取了内存、磁盘等硬件信息
+; 并写入了0x90000-0x901FF的位置（这些位置是之前bootsect所在的位置）
+; 在之后进入保护模式后，他们之前保存的位置就可以被覆盖，操作系统从新的位置读取他们
 
 ; NOTE; These had better be the same as in bootsect.s;
 
@@ -33,20 +29,20 @@ start:
 ; ok, the read went well so we get current cursor position and save it for
 ; posterity.
 
+; 读取cursor位置，并放在0x90000+0处
 	mov	ax,#INITSEG	; this is done in bootsect already, but...
 	mov	ds,ax
 	mov	ah,#0x03	; read cursor pos
 	xor	bh,bh
 	int	0x10		; save it in known place, con_init fetches
 	mov	[0],dx		; it from 0x90000.
-; Get memory size (extended mem, kB)
 
+; 读取扩展内存大小，并放在0x90000+2的位置
 	mov	ah,#0x88
 	int	0x15
 	mov	[2],ax
 
-; Get video-card data:
-
+; 获取显卡信息，并放在0x90000+4 与 0x90000+6的位置
 	mov	ah,#0x0f
 	int	0x10
 	mov	[4],bx		; bh = display page
@@ -112,6 +108,8 @@ is_disk1:
 	mov	ax,#0x0000
 	cld			; 'direction'=0, movs moves forward
 do_move:
+; 循环移动，将0x10000～0x90000的内容移动到一段从0x00000开始的内存中
+; 没写过太多汇编的表示...这个循环写的很漂亮...
 	mov	es,ax		; destination segment
 	add	ax,#0x1000
 	cmp	ax,#0x9000
@@ -127,12 +125,11 @@ do_move:
 ; then we load the segment descriptors
 
 end_move:
-	mov	ax,#SETUPSEG	; right, forgot this at first. didn't work :-)
+	mov	ax,#SETUPSEG
 	mov	ds,ax
+; 这里加载了全局定义符表和中断表，为进入保护模式作准备
 	lidt	idt_48		; load idt with 0,0
 	lgdt	gdt_48		; load gdt with whatever appropriate
-
-; that was painless, now we enable A20
 
 	call	empty_8042
 	mov	al,#0xD1		; command write
@@ -149,6 +146,8 @@ end_move:
 ; rectify it afterwards. Thus the bios puts interrupts at 0x08-0x0f,
 ; which is used for the internal hardware interrupts as well. We just
 ; have to reprogram the 8259's, and it isn't fun.
+
+; 这一部分写了俩个临时用的表
 
 	mov	al,#0x11		; initialization sequence
 	out	#0x20,al		; send it to 8259A-1
@@ -186,6 +185,10 @@ end_move:
 ; things as simple as possible, we do no register set-up or anything,
 ; we let the gnu-compiled 32-bit programs do that. We just jump to
 ; absolute address 0x00000, in 32-bit protected mode.
+
+; 进入了32bit保护模式
+; 并跳转到了物理地址为0x00000的位置执行（就是刚刚复制完的system）
+
 	mov	ax,#0x0001	; protected mode (PE) bit
 	lmsw	ax		; This is it;
 	jmpi	0,8		; jmp offset 0 of segment 8 (cs)
