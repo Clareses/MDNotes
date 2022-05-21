@@ -1,6 +1,6 @@
-# 计算机操作系统
+# Operating System
 
-## 前言
+## Overview
 
 在CSAPP中，已经初步了解过了编写的代码是如何一步步加载到内存中执行的
 
@@ -18,7 +18,7 @@
 
 这门课的**目的就是理解操作系统如何运作，通过对上层提供接口，从而协调多种硬件共同工作**。 
 
-## OS的启动过程
+## System Setup
 
 ### 预备知识
 
@@ -113,7 +113,7 @@ Linux makefile将head.s放置在了system部分的开头，因此setup执行后�
 - head为进入系统作最后准备，加载页表等
 - main加载操作系统的各个模块
 
-## 系统调用
+## System Call
 
 ### C内联汇编基础
 
@@ -361,12 +361,82 @@ _ret_from_sys_call:
 
 ## Process View—Process & Thread
 
-## Process View—Process Schedule
+### 线程 or 进程？
+
+​		**线程**（Thread），可以认为是**轻量级的进程**，线程之间的切换也需要保存、恢复寄存器的值，但是由于线程在同一个进程内，进程可以**为线程分配固定的内存位置**，**而不需要像进程切换那样进行页表的转换**。因此，**线程具体来说，实现了多个执行序列与一个地址空间**。课程到这时候还没有学习虚拟内存的内容，因此将进程调度的重点放在进程切换时对寄存器、PC的处理，因此实际上就是在叙述线程的调度与切换。
+
+### 用户级线程
+
+#### 两个线程，一个栈
+
+```c
+//假设有这样一段代码
+Thread1{
+    funcA(){
+        funcB();
+        return;
+    }
+    
+    funcB(){
+        Yield();
+        return;
+    }
+}
+
+Thread2{
+    funcC(){
+        funcD();
+        return;
+    }
+    
+    funcD(){
+        Yield();
+        return;
+    }
+}
+```
+
+​		假设代码从Thread1开始执行，关注栈的状态
+
+![image-20220521204044398](../../_Images/image-20220521204044398.png)
+
+​		当B返回时，控制流会根据栈返回到D中，控制流就乱了。因此，一个栈无法解决多个线程的调度问题，需要分配多个栈空间供不同的线程使用（同时记录每个栈的位置，这样利用内存就可以免去进程改页表的麻烦操作了）
+
+#### 线程调度的设计
+
+​		采取了多个栈的设计，并使用**全局变量TCB（Thread Control Block）描述每个线程的栈的栈顶位置**，并**在线程切换时将TCB读入RSP即可**（即上文所说的记录每个栈的位置）
+
+```c
+//模拟Yield函数的代码
+//简化为由Thread1转到Thread2执行
+void Yield_T1_to_T2(){
+    TCB1.esp = esp;
+    esp = TCB2.esp;
+    return;
+}
+//为什么不需要修改PC的值？
+//Thread2在之前调用Yield进入Thread1时，就需要将Yield后的代码压入栈中
+//因此，在Thread1切换到Thread2的Yield函数返回时，ret出栈中的调用者的下一句指令就正好是Thread2 Yield之后的下一句指令（因为栈已经切换了～）
+```
+
+```c
+//模拟ThreadCreate函数的代码
+void Thread_Create(void* func){
+    TCB* tcb = malloc();	//申请TCB的空间
+    *stack = malloc();		//申请栈空间
+    *stack = func;			//设置栈中的第一个代码位置
+    tcb.esp = stack;		//记录栈顶
+}
+```
+
+​		这种**用户级线程**为用户提供了线程切换、线程创建等函数，允许用户主动决定在什么位置切换线程。它**完全位于用户层，因此操作系统不会感知到它的存在**。但是同样地，如果这时**某个用户级线程进行了某个IO操作**，由于不知道它是多线程，**操作系统会进行进程切换**，从而**导致整个进程内的所有用户级线程都阻塞**。为了解决这个问题，**操作系统也提供了内核级线程，由内核维护TCB并进行调度**，就可以解决这个问题。
+
+##  Process View—Process Schedule
 
 ## Process View—IPC
 
 ## Process View—VM System
 
+## File View—Driver
 
-
-## File View—设备驱动与文件系统
+## File View—File System
