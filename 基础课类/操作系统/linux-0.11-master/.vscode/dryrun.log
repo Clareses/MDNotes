@@ -1,0 +1,32 @@
+make --dry-run --always-make --keep-going --print-directory
+make: Entering directory '/home/clares/MDNotes/基础课类/操作系统/linux-0.11-master'
+as86 -0 -a -o boot/bootsect.o boot/bootsect.s
+ld86 -0 -s -o boot/bootsect boot/bootsect.o
+as86 -0 -a -o boot/setup.o boot/setup.s
+ld86 -0 -s -o boot/setup boot/setup.o
+gcc -I./include -traditional -c boot/head.s
+mv head.o boot/
+gcc -mcpu=i386  -Wall -O2 -fomit-frame-pointer  \
+-nostdinc -Iinclude -c -o init/main.o init/main.c
+(cd kernel; make)
+(cd mm; make)
+(cd fs; make)
+(cd kernel/blk_drv; make)
+(cd kernel/chr_drv; make)
+(cd kernel/math; make)
+(cd lib; make)
+ld -m elf_i386 -Ttext 0 -e startup_32 boot/head.o init/main.o \
+kernel/kernel.o mm/mm.o fs/fs.o \
+kernel/blk_drv/blk_drv.a kernel/chr_drv/chr_drv.a \
+kernel/math/math.a \
+lib/lib.a \
+-o tools/system 
+nm tools/system | grep -v '\(compiled\)\|\(\.o$\)\|\( [aU] \)\|\(\.\.ng$\)\|\(LASH[RL]DI\)'| sort > System.map 
+gcc -mcpu=i386  -Wall -O2 -fomit-frame-pointer  \
+-o tools/build tools/build.c
+objcopy -O binary -R .note -R .comment tools/system tools/kernel
+tools/build boot/bootsect boot/setup tools/kernel  > Image
+rm tools/kernel -f
+sync
+make: Leaving directory '/home/clares/MDNotes/基础课类/操作系统/linux-0.11-master'
+ 

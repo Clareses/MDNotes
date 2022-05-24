@@ -210,21 +210,21 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 }
 
 // 为新进程取得不重复的进程号last_pid.函数返回在任务数组中的任务号(数组项)。
-int find_empty_process(void)
-{
-	int i;
-
+int find_empty_process(void) {
+    int i;
     // 首先获取新的进程号。如果last_pid增1后超出进程号的整数表示范围，则重新从1开始
     // 使用pid号。然后在任务数组中搜索刚设置的pid号是否已经被任何任务使用。如果是则
     // 跳转到函数开始出重新获得一个pid号。接着在任务数组中为新任务寻找一个空闲项，并
     // 返回项号。last_pid是一个全局变量，不用返回。如果此时任务数组中64个项已经被全部
     // 占用，则返回出错码。
-	repeat:
-		if ((++last_pid)<0) last_pid=1;
-		for(i=0 ; i<NR_TASKS ; i++)
-			if (task[i] && task[i]->pid == last_pid) goto repeat;
-	for(i=1 ; i<NR_TASKS ; i++)         // 任务0项被排除在外
-		if (!task[i])
-			return i;
-	return -EAGAIN;
+repeat:
+    if ((++last_pid) < 0)
+        last_pid = 1;
+    for (i = 0; i < NR_TASKS; i++)
+        if (task[i] && task[i]->pid == last_pid)
+            goto repeat;
+    for (i = 1; i < NR_TASKS; i++)  // 任务0项被排除在外
+        if (!task[i])
+            return i;
+    return -EAGAIN;
 }

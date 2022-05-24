@@ -26,17 +26,19 @@ static inline _syscall0(int, pause);
 static inline _syscall1(int, setup, void*, BIOS);
 static inline _syscall0(int, sync);
 
-#include <linux/tty.h>
+
+
+#include <asm/io.h>
+#include <asm/system.h>
+#include <fcntl.h>
+#include <linux/fs.h>
 #include <linux/head.h>
 #include <linux/sched.h>
-#include <asm/system.h>
-#include <asm/io.h>
+#include <linux/tty.h>
 #include <stdarg.h>
 #include <stddef.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <sys/types.h>
-#include <linux/fs.h>
+#include <unistd.h>
 
 static char printbuf[1024];
 
