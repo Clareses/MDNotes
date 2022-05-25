@@ -768,8 +768,6 @@ int copy_process(int nr..../*一系列寄存器*/){
 //父进程在得到调度后，会继续执行，因此也会return,但是由于并没有修改过自己的pid,因此会返回获取到的last_pid
 ```
 
-
-
 ##  Process View—Process Schedule
 
 ## Process View—IPC

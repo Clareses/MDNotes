@@ -6,6 +6,7 @@ as86 -0 -a -o boot/setup.o boot/setup.s
 ld86 -0 -s -o boot/setup boot/setup.o
 gcc -I./include -traditional -c boot/head.s
 mv head.o boot/
+ 
 gcc -mcpu=i386  -Wall -O2 -fomit-frame-pointer  \
 -nostdinc -Iinclude -c -o init/main.o init/main.c
 (cd kernel; make)
