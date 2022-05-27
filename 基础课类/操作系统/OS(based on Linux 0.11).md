@@ -867,7 +867,344 @@ void schedule(void) {
 - 后台进程一直根据counter轮转（while里），近似SJF调度
 - 每个进程仅维护counter一个变量，简单而高效
 
-## Process View—IPC
+## Process View—Sync & Semaphore
+
+### 为什么需要同步？
+
+​	在很多情况下，进程与进程之间并不是纯粹的分离关系，而是互有合作。如办公软件与打印机驱动，打印机并不是随时都可以开始工作的，而是要等待信号；因此说这两个进程同步。
+
+### 生产者-消费者实例
+
+```c
+#define BUFFER_SIZE 10
+typedef struct {...} item;
+item buffer[BUFFER_SIZE];
+int in = out = counter = 0;
+
+//生产者进程
+while(true){
+    while(counter == BUFFER_SIZE);
+    buffer[in] = item;
+    in = (in + 1)%BUFFER_SIZE;
+    counter ++;
+}
+
+//消费者进程
+while(true){
+    while(counter == 0);
+    item = buffer[out];
+    out = (out + 1)%BUFFER_SIZE;
+    counter --;
+}
+```
+
+​	在这个例子中，counter就相当于**信号**，生产者和消费者双方根据信号**决定是阻塞还是继续运行**，通过阻塞来保证双方的同步。
+
+​	因此可以发现，进程间同步的**关键就在于能够在合适的时候阻塞等待其他进程**。
+
+```c
+//改为多进程的样式
+
+#define BUFFER_SIZE 10
+typedef struct {...} item;
+item buffer[BUFFER_SIZE];
+int in = out = counter = 0;
+
+//生产者进程
+while(true){
+    if(counter == BUFFER_SIZE) sleep(消费者);
+    buffer[in] = item;
+    in = (in + 1)%BUFFER_SIZE;
+    counter ++;
+    if(counter == 1) wake(消费者);
+}
+
+//消费者进程
+while(true){
+    if(counter == 0) sleep(生产者);
+    item = buffer[out];
+    out = (out + 1)%BUFFER_SIZE;
+    counter --;
+    if(counter == BUFFER_SIZE - 1) wake(生产者);
+}
+```
+
+### 更多的进程?
+
+​	如果生产者与消费者之间的关系是多对一或是多对多？再根据上面的模型，很容易发现，消费者如果不知道总共有多少个生产者，那么将无法完成对所有生产者的唤醒工作。因此，如果仅有信号，是不够的。
+
+​	因此，扩充信号的语义，使它扩展为**信号量**。
+
+可以假设满足如下的规律：
+
+- 信号量sem记录了当前buffer能提供的空闲量
+- 如果有一个生产者进程对buffer有需求而未得到满足，则sem-=1
+- 如果sem为负，则消费者每唤醒一个生产者，sem+=1
+
+模拟一下多个进程合作时的情况：
+
+- 缓冲区满，此时P1执行，发现已满，进入睡眠，并将sem-=1（sem = -1）
+- 调度到P2执行，发现已满，进入睡眠，sem-=1                （sem = -2）
+- 调度到C执行，发现sem = -2，唤醒P1                           (sem = -1)
+- C执行，发现sem为负数，唤醒P2                               （ sem = 0 ）
+- C执行，读取，此时sem中出现空余，sem ++                   （sem = 1）
+- 调度到P1，发现有空位，消耗sem……
+
+可以发现，此时多个进程之间已经可以正常合作了
+
+```c
+//用代码实现一下
+
+#define BUFFER_SIZE 10
+typedef struct {...} item;
+item buffer[BUFFER_SIZE];
+int in = out = 0;
+int sem = BUFFER_SIZE;
+
+//生产者进程
+while(true){
+    if(sem <= 0){
+        sleep(self);
+    	addToQueue(self, producerSleepQueue);
+        sem--;
+    }
+    if(sem >= BUFFER_SIZE) {
+        wake(consumerSleepQueue.front);
+    	sem--;
+    }
+    writeToBuffer(item);
+    sem--;
+}
+
+//消费者进程
+while(true){
+    if(sem >= BUFFER_SIZE){
+        sleep(self);
+        addToQueue(self, consumerSleepQueu);
+        sem++;
+    }
+    if(sem < 0){
+        wake(producerSleepQueue.front);
+        sem++;
+    }
+    readFromBuffer(item);
+    sem++;
+}
+```
+
+### 信号量的一种实现
+
+信号量是1965年Dijkstra提出了一种特殊整形变量
+
+```c++
+struct semaphore{
+    int val;
+    PCB* queue;
+    
+    //test是否需要睡眠
+    void P(){
+        val --;
+        if(val < 0) sleep(queue);
+    }
+    
+    //判断是否需要唤醒
+    void V(){
+        val ++;
+        if(val > 0 ) wake(queue);
+    }
+}
+```
+
+### 用信号量解决生产消费问题
+
+```c
+#include "semaphore.h"
+#define BUFFER_SIZE 10
+item buffer[BUFFER_SIZE];
+semaphore full = BUFFER_SIZE;
+semaphore empty = 0;
+
+//生产者
+while(1){
+    empty.P();
+    //执行操作
+    full.V();
+}
+
+//消费者
+while(1){
+    full.P();
+    //执行操作
+    empty.V();
+}
+```
+
+## Process View—Critical Section
+
+### 为什么需要临界区保护
+
+考虑如下一个执行序列
+
+```c
+semaphore empty;
+
+process1{
+	int tmp = empty.val;
+    tmp += 1;
+    empty.val = temp;
+}
+
+process2{
+	int tmp = empty.val;
+    tmp += 1;
+    empty.val = temp;
+}
+```
+
+​	这里就会出现一个经典的**数据竞争问题**：在时间片调度下，有可能会出现这样的序列（事实上，所有的共享数据都会存在这样的竞争问题…）
+
+```
+{
+	process1.tmp = empty.val;
+	process1.tmp += 1;
+	process2.tmp = empty.val;
+	process2.tmp += 1;
+	empty.val = process1.tmp;
+	empty.val = process2.tmp;
+}
+```
+
+​	解决这类问题的一个直观想法就是：**给共享数据上锁**，强制只允许一个进程对共享数据进行修改（事实上有些指令集提供了原子操作这一硬件级的锁机制，如RISC-V）
+
+​	而对共享数据的修改的操作，就被称**临界区**（Critical Section），则现在工作的重点就转移到**找出信号量相关的操作中属于临界区的代码**
+
+### 软件对临界区进行保护
+
+#### 加入了临界区的进程
+
+```c
+process{
+    //剩余部分
+    ....
+    //进入临界区
+    //临界区代码
+    //退出临界区
+    ....
+    //剩余部分
+}
+```
+
+​	可以看出，给临界区加保护的操作应该**集中在进入临界区与退出临界区的位置**，即进入临界区前先执行一部分操作（判断当前是否可以进入，如果可以进入的话，留下信息保证别的进程不同时进入这一部分代码），退出临界区后做一部分操作（解除对临界区的限制）
+
+#### 保护的原则
+
+对临界区的保护应遵循以下原则：
+
+- **基本原则**：**互斥进入**
+- **有空让进，若干个进程要求进入时，应尽快使一个进程进入临界区**
+- **有限等待，从进程发出请求到允许进入，不能无限等待**
+
+#### 一个简单尝试——轮换
+
+```c
+process1{
+    //进入临界区
+    while(turn != 0);
+    //临界区
+    ...
+    //退出临界区
+    turn = 1;
+}
+
+process2{
+    //进入临界区
+    while(turn != 1);
+    //临界区
+    ...
+    //退出临界区
+    turn = 0;
+}
+```
+
+​	这个算法满足了互斥原则，但是**并不满足有空让进的原则**；即process1**无法连续两次进入临界区**，只能等待process2再进入一次后才可以进入（即使临界区现在是空的）
+
+#### 一个改善——标记法
+
+```c
+process1{
+    while(flag[1] == true);
+    flag[0] = true;
+    //临界区代码
+    flag[0] = false;
+}
+
+process2{
+	while(flag[0] == true);
+    flag[1] = true;
+    //临界区代码
+    flag[1] = false;
+}
+```
+
+​	这样就很好地解决了上面的问题，满足了有空让进的原则了！
+
+#### 结合——Peterson算法
+
+这个算法结合了标记和轮转两种思想，**采用非对称标记的方式**
+
+```c
+process1{
+    flag[0] = true;
+    turn = 1;
+    while(flag[1] && turn == 1);
+    //临界区
+    flag[0] = false;
+}
+
+process2{
+    flag[1] = true;
+    turn = 0;
+    while(flag[0] && turn == 0);
+    //临界区
+    flag[1] = false;
+}
+```
+
+​	这个算法的核心思想就是，相比对称标记，**增加一个turn变量，由turn变量来决定当双方都留标记时哪一方允许进入临界区**
+
+#### 多进程——面包店算法
+
+​	这个算法仍然是标记与轮转的结合，但是并没有像上面那样为每个进程都提供一个flag，而是采取“叫号”的方式协调
+
+- **如何轮转：每个进程都获取一个序号，序号最小的进入**
+- **如何标记：进程离开时，序号为0，不为0的序号即是标记**
+
+```c
+process{
+    choosing[i] = true;//标记自己为正在选号
+    num[i] = max(num[0]...num[n-1])+1; //进行选号，并填入表中
+    choosing[i] = false;//取消选号标记
+    for(int j = 0; j < n; j++){
+        while(choosing[j]);//如果有人在选号，等待
+        //前面的号不为0并且比自己的号小，等待
+        while((num[j] != 0) && num[j]< num[i]);
+    }
+    //临界区
+    num[i] = 0;//将自己的号丢弃
+}
+```
+
+### 硬件对临界区进行保护
+
+#### 利用内嵌汇编阻止调度
+
+​	在临界区开始前关闭中断，在临界区结束后再开启中断，从源头上阻止CPU进行调度，使得临界区代码成为一个原子操作。
+
+​	但是这样会影响多核CPU的工作；如果将全部CPU核心的中断都关闭，那么执行非临界区代码的核心也会受到影响；如果只关闭自己的中断，那么其他核心依然可以进入访问临界区代码。
+
+#### 硬件原子指令
+
+​	利用指令集提供的原子操作，对共享数据上锁即可
 
 ## Process View—VM System
 
