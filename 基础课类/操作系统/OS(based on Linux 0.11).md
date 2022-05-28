@@ -1206,6 +1206,100 @@ process{
 
 ​	利用指令集提供的原子操作，对共享数据上锁即可
 
+## Process View—Coding Semaphore
+
+这一节尝试在操作系统中实现一个真正的信号量系统
+
+### 用户态怎么使用这一功能？
+
+```c
+//producer.c
+#include "sem.h"
+
+int main(){
+    //通过name打开一个信号量
+    int sd = sem_open("empty");
+    for(int i = 0; i < 5; i++){
+        //测试是否需要等待，如果需要则阻塞
+        sem_wait(sd);
+        write(fd, &i, 4);
+    }
+}
+```
+
+### 内核中实现的框架
+
+```c
+//sem.c
+
+typedef struct{
+    char name[20];
+    int value;
+    task_struct* queue;
+} semtable[20];
+
+//系统调用实现
+int sys_sem_open(char* name){
+    for(int i = 0; i < semtable.length(); i++){
+        if(semtable.name == name) return i;
+    }
+    int pos = semtable.find_empty_position();
+    semtable[pos] = ("name", 0, new queue);
+    return pos;
+}
+
+void sys_sem_wait(int sd){
+    cli();//关中断
+    if(--semtable[sd].value < 0){
+        add_to_queue(self, semtable[sd].queue);
+        schedule();
+    }
+    sti();//开中断
+}
+```
+
+### Linux 0.11中的信号
+
+```c
+//buffer.c
+
+struct buffer_head* bread(int dev, int block){
+	struct buffer_head* bh;
+    bh = getblk(dev, blk);//申请缓冲区
+    ll_rw_block(READ, bh);//启动读命令
+    wait_on_buffer(bh);//等待磁盘读写操作结束（解锁后缓冲区里的数据就可用了）
+    //因此这里实际上是进程与磁盘读写操作之间的同步
+}
+
+void wait_on_buffer(struct buffer_head * bh){
+	cli();//进入临界区
+	while (bh->b_lock)//当bh还锁着，说明读写操作还没完成
+		sleep_on(&bh->b_wait); //进入等待队列
+	sti();//退出临界区
+}
+
+void sleep_on(struct task_struct** p){
+    struct task_struct* tmp;
+    //将自己放入队列中（很隐蔽）
+    tmp = *p;
+    *p = current;
+    
+    current->state = TASK_UNITERRUPTABLE;
+    schedule();
+    if(tmp) tmp->state = 0;//循环唤醒队列中的所有进程
+//考虑加入队列的这一段代码
+    //*p = current,其中p是当前队列的头指针，那么队列的队首就变成了current
+    //那么还需要将current的next设置为原队首，通过内核栈实现...
+    //每个内核栈都有自己的tmp指针，tmp指向了原来的队首，则tmp就相当于next了
+}
+
+//当磁盘读写操作完成后，会由中断唤醒进程继续执行
+```
+
+好难…
+
+## Process View—Deadlock
+
 ## Process View—VM System
 
 ## File View—Driver
