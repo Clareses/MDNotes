@@ -1,5 +1,12 @@
 {
     "files.associations": {
-        "unistd.h": "c"
+        "unistd.h": "c",
+        "array": "c",
+        "compare": "c",
+        "functional": "c",
+        "ratio": "c",
+        "tuple": "c",
+        "type_traits": "c",
+        "utility": "c"
     }
 }

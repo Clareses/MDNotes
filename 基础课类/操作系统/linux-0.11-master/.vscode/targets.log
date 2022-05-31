@@ -6,7 +6,7 @@ make all --print-data-base --no-builtin-variables --no-builtin-rules --question
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Sat May 28 14:31:27 2022
+# Make data base, printed on Tue May 31 16:49:11 2022
 
 # Variables
 
@@ -21,7 +21,7 @@ NO_AT_BRIDGE = 1
 # environment
 GJS_DEBUG_OUTPUT = stderr
 # environment
-VSCODE_IPC_HOOK_EXTHOST = /run/user/1000/vscode-ipc-e8c7e0ed-5533-48ac-b8e3-85800941e8a3.sock
+VSCODE_IPC_HOOK_EXTHOST = /run/user/1000/vscode-ipc-bf67be3a-59d9-4e6b-8de3-c78d782045d6.sock
 # environment
 LC_NAME = zh_CN.UTF-8
 # environment
@@ -101,7 +101,7 @@ MAKEFILE_LIST := Makefile
 # environment
 VSCODE_VERBOSE_LOGGING = true
 # environment
-VSCODE_PID = 9799
+VSCODE_PID = 9652
 # environment
 MOZ_ENABLE_WAYLAND = 1
 # environment
@@ -109,7 +109,7 @@ XDG_SESSION_TYPE = x11
 # automatic
 ?D = $(patsubst %/,%,$(dir $?))
 # environment
-SESSION_MANAGER = local/clare-ASUS:@/tmp/.ICE-unix/1378,unix/clare-ASUS:/tmp/.ICE-unix/1378
+SESSION_MANAGER = local/clare-ASUS:@/tmp/.ICE-unix/1367,unix/clare-ASUS:/tmp/.ICE-unix/1367
 # automatic
 *F = $(notdir $*)
 # environment
@@ -153,7 +153,7 @@ DRIVERS = kernel/blk_drv/blk_drv.a kernel/chr_drv/chr_drv.a
 # environment
 LC_TIME = zh_CN.UTF-8
 # environment
-INVOCATION_ID = 1f94cc7263bd4f6bbb4832de4a56b254
+INVOCATION_ID = b08b3c09c45b45e6960d86941522723e
 # makefile (from 'Makefile', line 16)
 CPP = cpp -nostdinc -Iinclude
 # environment
@@ -185,7 +185,7 @@ GIO_LAUNCHED_DESKTOP_FILE = /usr/share/applications/visual-studio-code.desktop
 # makefile
 .DEFAULT_GOAL := all
 # environment
-SYSTEMD_EXEC_PID = 1394
+SYSTEMD_EXEC_PID = 1382
 # environment
 EDITOR = /usr/bin/nano
 # environment
@@ -197,11 +197,11 @@ MAKE_VERSION := 4.3
 # makefile (from 'Makefile', line 12)
 LDFLAGS = -m elf_i386 -Ttext 0 -e startup_32
 # environment
-MANAGERPID = 1247
+MANAGERPID = 1239
 # environment
 LC_MEASUREMENT = zh_CN.UTF-8
 # environment
-GIO_LAUNCHED_DESKTOP_FILE_PID = 9782
+GIO_LAUNCHED_DESKTOP_FILE_PID = 9635
 # makefile (from 'Makefile', line 5)
 RAMDISK = 
 # environment
@@ -215,7 +215,7 @@ CFLAGS = -Wall -O2 -fomit-frame-pointer
 # makefile (from 'Makefile', line 23)
 ROOT_DEV = 
 # environment
-JOURNAL_STREAM = 8:15953
+JOURNAL_STREAM = 8:32098
 # environment
 XDG_SESSION_CLASS = user
 # environment
@@ -285,7 +285,6 @@ lib/lib.a:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
- 
 #  recipe to execute (from 'Makefile', line 87):
 	(cd lib; make)
 
@@ -304,6 +303,7 @@ include/sys/times.h:
 boot/head.o: boot/head.s
 #  Implicit rule search has not been done.
 #  Modification time never checked.
+ 
 #  File has not been updated.
 #  recipe to execute (from 'Makefile', line 55):
 	gcc -I./include -traditional -c boot/head.s
@@ -596,6 +596,7 @@ tools/build.c:
 # Not a target:
 include/linux/head.h:
 #  Implicit rule search has not been done.
+ 
 #  Modification time never checked.
 #  File has not been updated.
 
@@ -664,6 +665,6 @@ include/unistd.h:
 # strcache performance: lookups = 114 / hit rate = 41%
 # hash-table stats:
 # Load=67/8192=1%, Rehash=0, Collisions=0/114=0%
-# Finished Make data base on Sat May 28 14:31:27 2022
+# Finished Make data base on Tue May 31 16:49:11 2022
 
  
