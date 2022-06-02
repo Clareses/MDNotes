@@ -1440,6 +1440,146 @@ void sleep_on(struct task_struct** p){
 
 ## Memory Manager—Segmentation & Paging
 
+​	程序员在编写汇编程序时，更习惯使用段+Offset的方式编写程序；而对物理内存来说，使用分页是一个更合适的选择（可以有效提高内存的利用率）。两种管理方式都各有优劣，引出了**段页结合的实际内存管理**
+
+### 段与页如何结合？
+
+- 段的使用方式
+
+    <img src="../../_Images/image-20220602122724564.png" alt="image-20220602122724564" style="zoom:67%;" />
+
+- 页的使用方式
+
+    <img src="../../_Images/image-20220602123254442.png" alt="image-20220602123254442" style="zoom:67%;" />
+
+- 段与页结合？
+
+<img src="../../_Images/image-20220602124325161.png" alt="image-20220602124325161" style="zoom:150%;" />
+
+- 多进程视角下？
+
+    ![image-20220602132604048](../../_Images/image-20220602132604048.png)
+
+### 段页结合下的地址翻译
+
+![image-20220602132022912](../../_Images/image-20220602132022912.png)
+
+> **思考一下虚拟内存解决了什么问题？**
+>
+> ​	如果直接对物理内存进行段管理，那么带来的问题就是会出现大量的内存碎片，而降低了内存的利用率；如果对物理内存使用分页管理，且让程序员直接面对分页，那样会带来编码难度加大的问题。
+>
+> ​	因此，虚拟出一个内存，允许虚拟内存使用段管理（允许出现碎片），但当虚拟内存映射到物理内存上的时候，使用分页管理（提高了物理内存的利用率）。
+>
+> ​	虚拟内存还给每个进程都提供了一个独立的虚拟地址空间，顺带着解决了多进程的问题。同时，页表或段中可以添加访问信息，使得权限管理更容易了。
+
+## Memory Manager—VM Implement
+
+### 内存使用的开始
+
+​	内存的使用与进程绑定，因此内存使用的开始就是新建一个进程的时刻，查看sys_fork()的代码：
+
+```assembly
+sys_fork:
+	call find_empty_process
+	testl %eax,%eax             # 在eax中返回进程号pid。若返回负数则退出。
+	js 1f
+	push %gs
+	pushl %esi
+	pushl %edi
+	pushl %ebp
+	pushl %eax
+	call copy_process 			# 关键函数是copu_process
+	addl $20,%esp               # 丢弃这里所有压栈内容。
+1:	ret
+```
+
+```c
+int copy_process(int ....){
+    ....//新建任务结构体并初始化
+    if (copy_mem(nr, p)) { //关键函数 copy_mem(int,task*);
+        task[nr] = NULL;
+        free_page((long)p);
+        return -EAGAIN;
+    }
+    ....//将进程添加进就绪列表
+    return ;
+}
+```
+
+```c
+//nr为任务号，p为任务结构体指针
+int copy_mem(int nr,struct task_struct* p){
+	unsigned long old_data_base, new_data_base, data_limit;
+	unsigned long old_code_base, new_code_base, code_limit;
+    code_limit = get_limit(0x0f);
+	data_limit = get_limit(0x17);
+    old_code_base = get_base(current->ldt[1]);
+	old_data_base = get_base(current->ldt[2]);
+	if (old_data_base != old_code_base)
+		panic("We don't support separate I&D");
+	if (data_limit < code_limit)
+		panic("Bad data_limit");
+    //重点在这几句
+    //（Linux 0.11没有切换页表，而是给每个进程都固定分配了64M的虚拟内存）
+    //计算新段的LDT
+    new_data_base = new_code_base = nr * 0x4000000;
+	//设置新段的一些数据（分配虚拟内存）
+    p->start_code = new_code_base;
+    set_base(p->ldt[1],new_code_base);
+	set_base(p->ldt[2],new_data_base);
+	//复制父进程的页表（建页表，共用父进程的物理内存）
+    if (copy_page_tables(old_data_base,new_data_base,data_limit)) {
+		printk("free_page_tables: from copy_mem\n");
+		free_page_tables(new_data_base,data_limit);
+		return -ENOMEM;
+	}
+	return 0;
+}
+```
+
+```c
+int copy_page_tables(unsigned long from,unsigned long to,long size)
+{
+	unsigned long * from_page_table;
+	unsigned long * to_page_table;
+	unsigned long this_page;
+	unsigned long * from_dir, * to_dir;
+	unsigned long nr;
+	if ((from&0x3fffff) || (to&0x3fffff))
+		panic("copy_page_tables called with wrong alignment");
+	from_dir = (unsigned long *) ((from>>20) & 0xffc); 
+	to_dir = (unsigned long *) ((to>>20) & 0xffc);
+	size = ((unsigned) (size+0x3fffff)) >> 22;
+	for( ;size-->0 ;from_dir++,to_dir++) {
+		if (1 & *to_dir)
+			panic("copy_page_tables: already exist");
+		if (!(1 & *from_dir))
+			continue;
+		from_page_table = 
+            (unsigned long *) (0xfffff000 & *from_dir);
+		if (!(to_page_table = (unsigned long *) get_free_page()))
+			return -1;	/* Out of memory, see freeing */
+		*to_dir = ((unsigned long) to_page_table) | 7;
+		nr = (from==0)?0xA0:1024;
+		for ( ; nr-- > 0 ; from_page_table++,to_page_table++) {
+			this_page = *from_page_table;
+			if (!(1 & this_page))
+				continue;
+			this_page &= ~2;
+			*to_page_table = this_page;
+			if (this_page > LOW_MEM) {
+				*from_page_table = this_page;
+				this_page -= LOW_MEM;
+				this_page >>= 12;
+				mem_map[this_page]++;
+			}
+		}
+	}
+	invalidate();
+	return 0;
+}
+```
+
 
 
 ## File View—Driver

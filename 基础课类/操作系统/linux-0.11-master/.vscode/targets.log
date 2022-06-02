@@ -6,7 +6,7 @@ make all --print-data-base --no-builtin-variables --no-builtin-rules --question
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Wed Jun  1 20:10:03 2022
+# Make data base, printed on Thu Jun  2 13:37:07 2022
 
 # Variables
 
@@ -21,7 +21,7 @@ NO_AT_BRIDGE = 1
 # environment
 GJS_DEBUG_OUTPUT = stderr
 # environment
-VSCODE_IPC_HOOK_EXTHOST = /run/user/1000/vscode-ipc-8d65b144-c350-44d6-a1a5-4f36b9dff619.sock
+VSCODE_IPC_HOOK_EXTHOST = /run/user/1000/vscode-ipc-acb79f99-fe4d-4467-9c69-ad9112185b4f.sock
 # environment
 LC_NAME = zh_CN.UTF-8
 # environment
@@ -101,7 +101,7 @@ MAKEFILE_LIST := Makefile
 # environment
 VSCODE_VERBOSE_LOGGING = true
 # environment
-VSCODE_PID = 8451
+VSCODE_PID = 12631
 # environment
 MOZ_ENABLE_WAYLAND = 1
 # environment
@@ -109,7 +109,7 @@ XDG_SESSION_TYPE = x11
 # automatic
 ?D = $(patsubst %/,%,$(dir $?))
 # environment
-SESSION_MANAGER = local/clare-ASUS:@/tmp/.ICE-unix/1373,unix/clare-ASUS:/tmp/.ICE-unix/1373
+SESSION_MANAGER = local/clare-ASUS:@/tmp/.ICE-unix/1704,unix/clare-ASUS:/tmp/.ICE-unix/1704
 # automatic
 *F = $(notdir $*)
 # environment
@@ -153,7 +153,7 @@ DRIVERS = kernel/blk_drv/blk_drv.a kernel/chr_drv/chr_drv.a
 # environment
 LC_TIME = zh_CN.UTF-8
 # environment
-INVOCATION_ID = c7c734f3eb7849b8917bddb05361406c
+INVOCATION_ID = 4e32417b2108464191dd1401d101ba26
 # makefile (from 'Makefile', line 16)
 CPP = cpp -nostdinc -Iinclude
 # environment
@@ -185,7 +185,7 @@ GIO_LAUNCHED_DESKTOP_FILE = /usr/share/applications/visual-studio-code.desktop
 # makefile
 .DEFAULT_GOAL := all
 # environment
-SYSTEMD_EXEC_PID = 1389
+SYSTEMD_EXEC_PID = 1720
 # environment
 EDITOR = /usr/bin/nano
 # environment
@@ -197,11 +197,11 @@ MAKE_VERSION := 4.3
 # makefile (from 'Makefile', line 12)
 LDFLAGS = -m elf_i386 -Ttext 0 -e startup_32
 # environment
-MANAGERPID = 1246
+MANAGERPID = 1569
 # environment
 LC_MEASUREMENT = zh_CN.UTF-8
 # environment
-GIO_LAUNCHED_DESKTOP_FILE_PID = 8434
+GIO_LAUNCHED_DESKTOP_FILE_PID = 12614
 # makefile (from 'Makefile', line 5)
 RAMDISK = 
 # environment
@@ -215,7 +215,7 @@ CFLAGS = -Wall -O2 -fomit-frame-pointer
 # makefile (from 'Makefile', line 23)
 ROOT_DEV = 
 # environment
-JOURNAL_STREAM = 8:27264
+JOURNAL_STREAM = 8:24398
 # environment
 XDG_SESSION_CLASS = user
 # environment
@@ -665,6 +665,6 @@ include/unistd.h:
 # strcache performance: lookups = 114 / hit rate = 41%
 # hash-table stats:
 # Load=67/8192=1%, Rehash=0, Collisions=0/114=0%
-# Finished Make data base on Wed Jun  1 20:10:03 2022
+# Finished Make data base on Thu Jun  2 13:37:07 2022
 
  
