@@ -1474,8 +1474,6 @@ void sleep_on(struct task_struct** p){
 
 ## Memory Manager—VM Implement
 
-### 内存使用的开始
-
 ​	内存的使用与进程绑定，因此内存使用的开始就是新建一个进程的时刻，查看sys_fork()的代码：
 
 ```assembly
@@ -1578,6 +1576,174 @@ int copy_page_tables(unsigned long from,unsigned long to,long size)
 	invalidate();
 	return 0;
 }
+```
+
+## Memory Manager—Swap in & out
+
+### 为什么需要虚拟内存？
+
+​	期望提高对内存的利用率的同时保证编写代码的简易性。虚拟内存衔接了段与页的联系，对程序员可以利用段来编写代码，对物理内存可以使用页来进行更好的管理；整个过程通过**两次地址翻译**来完成：第一次是**逻辑地址转为虚拟地址**（通过LDT），第二次是**虚拟地址转成物理地址**（通过页表）；整个过程在软件角度看，只需要配置好页表与LDT，其余的由硬件（MMU）完成。
+
+### 还缺少了什么？
+
+​	虚拟内存可以比物理内存大的多，如何实现这样的大内存？可以通过页表记录当前已经存在物理内存上的页，并在合适的时候进行换入换出。这种情况下，**物理内存就类似于虚拟内存的缓存**。
+
+​	换入换出的双方是谁？换入哪里？换出到哪里？**换入换出的双方是物理内存与磁盘，换入是将磁盘上的分页读入物理内存，换出是将物理内存上的内容写入磁盘**。虚拟内存中的“数据”事实上应该存在磁盘上，并通过映射来记录。这种情况下，**虚拟内存像是提取出了磁盘中需要用到的部分，作为物理内存与磁盘之间进行缓存的媒介**。
+
+### 换入换出的过程
+
+![image-20220604115719259](../../_Images/image-20220604115719259.png)
+
+1. CPU对虚拟内存地址进行操作
+2. 发现页表中PTEm的PPN为空，触发中断，执行缺页异常处理程序
+3. **通过虚拟内存与磁盘的映射（蓝色虚线）**，在磁盘上找到对应的虚拟页
+4. **计算出可以换出的物理页，与磁盘上的页面替换（红色双向箭）**
+5. 修改页表，**被换出的PTE记录为无映射（删除红色虚线箭），换入的PTE记录为有映射（添加绿色箭）**
+6. **重新执行CPU的操作**（这一点与普通中断不一样，一般的中断是执行下一句操作，而这里是重新执行）
+
+### 置换算法—LRU
+
+置换算法的评判标准在于：引发缺页异常的次数
+
+- FIFO算法效率低，虽然公平但会导致大量缺页（公平在这里没什么用…）
+- MIN算法选择最远将使用的页淘汰，是最优方案，但难以实现
+
+#### 什么是LRU
+
+​	LRU算法是MIN算法的平替，用过去的历史预测将来，**选择最近最长一段时间没有使用的页面淘汰**（最近最少使用，Least Recent Use）
+
+> 为什么LRU能起作用？
+>
+> ​	还是因为局部性。最近没有用到的页，在将来也很可能不会用到。
+
+#### LRU—时间戳
+
+​	为每个页维护一个**时间戳**，记录该页最近使用的一次时间。这个算法的**实现非常简单**，但是**运行起来的效率非常差**；因为**每次引用内存都需要更新PTE**，在**选择置换页面时还需要遍历比较整个页表**。此外，还需要处理时间戳溢出等复杂情况。因此，该算法在实际使用中并不可行。
+
+#### LRU—页码栈
+
+​	每次使用时，都将对应的物理页提到栈顶；置换时淘汰栈底的物理页。同样，这个算法需要大量访问内存进行操作，带来效率低下的问题。
+
+#### LRU近似实现—SCR
+
+​	在实际的操作系统中，给每个物理页添加一个引用位；如果最近使用过，则标记为1；在置换时，遍历整个循环链表，如果标记为1,则将标记改为0，如果标记为0，则选择替换该物理页。SCR即Second Chance Replacement，二次机会替换。 
+
+#### SCR的改造
+
+​	如果缺页很少，会造成SCR退化成FIFO算法；因此需要对SCR作一些优化。退化的原因是记录了太长的历史信息。因此需要定时清除引用位。
+
+### Linux 0.11中的调页
+
+#### 异常处理程序的绑定
+
+```c
+//init/main.c
+void main(void){
+    ...
+    trap_init();
+    ...
+}
+
+//kernel/traps.c
+void trap_init(){
+    ....
+    set_trap_gate(14,&page_fault);
+	....
+}
+
+//这个函数在学习系统调用的时候也学习过
+//当时是将0x80号中断与system_call函数绑定
+```
+
+#### 缺页处理程序
+
+```assembly
+#linux/mm/page.s
+.globl page_fault
+page_fault:
+	#保存数据，取出错误码到eax中
+	xchgl %eax,(%esp)
+	pushl %ecx
+	pushl %edx
+	push %ds
+	push %es
+	push %fs
+	
+	movl $0x10,%edx
+	mov %dx,%ds
+	mov %dx,%es
+	mov %dx,%fs
+	
+	#取出引起页面异常的地址
+	#CR2是页故障线性地址寄存器，保存最后一次出现页故障的全32位线性地址
+	movl %cr2,%edx
+	pushl %edx
+	pushl %eax
+	#测试页存在标志P（为0），如果不是缺页引起的异常则跳转
+	testl $1,%eax
+	jne 1f
+	##重点...do_no_page
+	call do_no_page
+	jmp 2f
+	#调用写保护处理
+1:	call do_wp_page
+	#返回处理
+2:	addl $8,%esp
+	pop %fs
+	pop %es
+	pop %ds
+	popl %edx
+	popl %ecx
+	popl %eax
+	iret
+
+```
+
+```c
+//linux/mm/memory.c
+void do_no_page(unsigned long error_code,unsigned long address)
+{
+	int nr[4];
+	unsigned long tmp;
+	unsigned long page;
+	int block,i;
+	address &= 0xfffff000;//去除地址低12位（页面大小为4KB）
+    //tmp保存缺页地址与当前进程之间的gap
+	tmp = address - current->start_code;
+    //如果偏移大于end_data或当前程序不可执行？
+	if (!current->executable || tmp >= current->end_data) {
+		//为该VP分配一块空的PP并返回
+        get_empty_page(address);
+		return;
+	}
+    //判断当前页是否可以共享，如果是则返回
+	if (share_page(tmp))
+		return;
+    //如果获取失败，则显示内存已用完（不存在可以换出的页面）
+    //这里已经用算法计算出了可以替换的PP了
+	if (!(page = get_free_page()))
+		oom();
+	block = 1 + tmp/BLOCK_SIZE;
+    //计算需要的页面在磁盘上的位置（1Page为4Block，nr用来存块号）
+	for (i=0 ; i<4 ; block++,i++)
+		nr[i] = bmap(current->executable,block);
+    //读磁盘
+	bread_page(page,current->executable->i_dev,nr);
+	i = tmp + 4096 - current->end_data;
+	tmp = page + 4096;
+	while (i-- > 0) {
+		tmp--;
+		*(char *)tmp = 0;
+	}
+    //修改页表
+	if (put_page(page,address))
+		return;
+	//失败的情况下，释放PP,并显示物理内存不足
+    free_page(page);
+	oom();
+}
+
+//可以看出Linux 0.11并不支持置换出的页面写回磁盘，只支持读入并执行，经常会报内存不足的错误
 ```
 
 
