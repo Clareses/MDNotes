@@ -1746,6 +1746,117 @@ void do_no_page(unsigned long error_code,unsigned long address)
 //可以看出Linux 0.11并不支持置换出的页面写回磁盘，只支持读入并执行，经常会报内存不足的错误
 ```
 
+## File View—IO & Peripheral
+
+### 外设是如何被使用的？
+
+​	外设，即外部设备，可以简单理解为**输入设备和输出设备**；它们与计算机主机**可以认为处于同一地位**，因为它们本身自己也带有计算能力（有内部的运算电路和芯片，比如最常见的固态硬盘的负载均衡就是在其内部实现的）
+
+​	使用外设，就是CPU通过**PCI总线**（PCI，外设组件互联标准），向外设的寄存器（或是内存）写入一些内容；外设的计算模块依赖这些数据进行处理，并在**处理完成后发出中断**。
+
+​	但是裸机使用硬件十分繁琐，操作系统应该给用户提供一个简单、统一的视图——**文件视图**。
+
+### 显示器
+
+对显示器的操作以printf为例：
+
+```c
+//init/main.c
+
+static int printf(const char* fmt, ...) {
+    char* args;
+    int i;
+    //计算出args开始的内存地址
+    args = (char *) &(fmt) + __va_rounded_size (fmt);
+   	//调用vsprintf向printbuf中写入格式化字符串，再将printbuf写入fd=1的文件
+    //void write(int fd, char* buf, int offset);
+    write(1, printbuf, i = vsprintf(printbuf, fmt, args));
+    //返回写入的字节数
+    return i;
+}
+
+//write会展开为系统调用，陷入内核调用sys_write
+//fs/read_write.c
+int sys_write(unsigned int fd,char * buf,int count)
+{
+	struct file * file;
+	struct m_inode * inode;
+    //这里将file赋值，通过当前进程的PCB获取文件列表并索引访问到fd对应的文件
+	if (fd>=NR_OPEN || count <0 || !(file=current->filp[fd]))
+		return -EINVAL;
+	if (!count)
+		return 0;
+    //通过文件结构体取得文件的信息
+	inode=file->f_inode;
+    //根据文件的分类进行分别操作
+	if (inode->i_pipe)//管道设备
+		return (file->f_mode&2)?write_pipe(inode,buf,count):-EIO;
+	if (S_ISCHR(inode->i_mode))//字符设备（Character）
+		return 
+        rw_char(WRITE,inode->i_zone[0],buf,count,&file->f_pos);
+	if (S_ISBLK(inode->i_mode))//块设备（Block，如磁盘等）
+		return block_write(inode->i_zone[0],&file->f_pos,buf,count);
+	if (S_ISREG(inode->i_mode))//常规文件（Regular）
+		return file_write(inode,file,buf,count);
+    //如果都不是以上文件，则退出
+	printk("(Write)inode->i_mode=%06o\n\r",inode->i_mode);
+	return -EINVAL;
+}
+
+//那么fd从哪里来？(文件如何产生？)
+//
+int sys_open(const char * filename, int flag, int mode){
+	struct m_inode * inode;
+	struct file * f;
+	int i,fd;
+    //先处理了一下参数
+	mode &= 0777 & ~current->umask;
+	//循环遍历当前PCB文件列表，找到一个fd空位
+    for(fd=0; fd<NR_OPEN; fd++)
+		if (!current->filp[fd])
+			break;
+    //没找着
+	if (fd>=NR_OPEN)
+		return -EINVAL;
+    current->close_on_exec &= ~(1<<fd);
+	//找到了文件的w e
+    f=0+file_table;
+	for (i=0 ; i<NR_FILE ; i++,f++)
+		if (!f->f_count) break;
+	if (i>=NR_FILE)
+		return -EINVAL;
+	(current->filp[fd]=f)->f_count++;
+	if ((i=open_namei(filename,flag,mode,&inode))<0) {
+		current->filp[fd]=NULL;
+		f->f_count=0;
+		return i;
+	}
+	if (S_ISCHR(inode->i_mode)) {
+		if (MAJOR(inode->i_zone[0])==4) {
+			if (current->leader && current->tty<0) {
+				current->tty = MINOR(inode->i_zone[0]);
+				tty_table[current->tty].pgrp = current->pgrp;
+			}
+		} else if (MAJOR(inode->i_zone[0])==5)
+			if (current->tty<0) {
+				iput(inode);
+				current->filp[fd]=NULL;
+				f->f_count=0;
+				return -EPERM;
+			}
+	}
+	if (S_ISBLK(inode->i_mode))
+		check_disk_change(inode->i_zone[0]);
+	f->f_mode = inode->i_mode;
+	f->f_flags = flag;
+	f->f_count = 1;
+	f->f_inode = inode;
+	f->f_pos = 0;
+	return (fd);
+}
+
+```
+
 
 
 ## File View—Driver

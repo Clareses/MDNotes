@@ -6,7 +6,7 @@ make all --print-data-base --no-builtin-variables --no-builtin-rules --question
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Thu Jun  2 13:37:07 2022
+# Make data base, printed on Sun Jun  5 12:37:57 2022
 
 # Variables
 
@@ -21,7 +21,7 @@ NO_AT_BRIDGE = 1
 # environment
 GJS_DEBUG_OUTPUT = stderr
 # environment
-VSCODE_IPC_HOOK_EXTHOST = /run/user/1000/vscode-ipc-acb79f99-fe4d-4467-9c69-ad9112185b4f.sock
+VSCODE_IPC_HOOK_EXTHOST = /run/user/1000/vscode-ipc-b051b77c-4265-41a0-a850-a8c535bdd3ac.sock
 # environment
 LC_NAME = zh_CN.UTF-8
 # environment
@@ -101,7 +101,7 @@ MAKEFILE_LIST := Makefile
 # environment
 VSCODE_VERBOSE_LOGGING = true
 # environment
-VSCODE_PID = 12631
+VSCODE_PID = 5425
 # environment
 MOZ_ENABLE_WAYLAND = 1
 # environment
@@ -109,7 +109,7 @@ XDG_SESSION_TYPE = x11
 # automatic
 ?D = $(patsubst %/,%,$(dir $?))
 # environment
-SESSION_MANAGER = local/clare-ASUS:@/tmp/.ICE-unix/1704,unix/clare-ASUS:/tmp/.ICE-unix/1704
+SESSION_MANAGER = local/clare-ASUS:@/tmp/.ICE-unix/1427,unix/clare-ASUS:/tmp/.ICE-unix/1427
 # automatic
 *F = $(notdir $*)
 # environment
@@ -139,7 +139,7 @@ MAKELEVEL := 0
 # default
 MAKE = $(MAKE_COMMAND)
 # environment
-PATH = /home/clares/.cargo/bin:/home/clares/.local/bin:/usr/local/bin:/usr/bin:/var/lib/snapd/snap/bin:/usr/local/sbin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl
+PATH = /home/clares/.cargo/bin:/home/clares/.local/bin:/usr/local/bin:/usr/bin:/var/lib/snapd/snap/bin:/usr/local/sbin:/usr/lib/jvm/default/bin:/usr/bin/site_perl:/usr/bin/vendor_perl:/usr/bin/core_perl
 # default
 MAKEFILES := 
 # environment
@@ -153,7 +153,7 @@ DRIVERS = kernel/blk_drv/blk_drv.a kernel/chr_drv/chr_drv.a
 # environment
 LC_TIME = zh_CN.UTF-8
 # environment
-INVOCATION_ID = 4e32417b2108464191dd1401d101ba26
+INVOCATION_ID = e199ccb2a11c45bf980c5b8eee9f1831
 # makefile (from 'Makefile', line 16)
 CPP = cpp -nostdinc -Iinclude
 # environment
@@ -175,6 +175,7 @@ DESKTOP_SESSION = gnome
 # environment
 ORIGINAL_XDG_CURRENT_DESKTOP = GNOME
 # makefile (from 'Makefile', line 25)
+ 
 ARCHIVES = kernel/kernel.o mm/mm.o fs/fs.o
 # 'override' directive
 GNUMAKEFLAGS := 
@@ -185,7 +186,7 @@ GIO_LAUNCHED_DESKTOP_FILE = /usr/share/applications/visual-studio-code.desktop
 # makefile
 .DEFAULT_GOAL := all
 # environment
-SYSTEMD_EXEC_PID = 1720
+SYSTEMD_EXEC_PID = 1443
 # environment
 EDITOR = /usr/bin/nano
 # environment
@@ -197,11 +198,11 @@ MAKE_VERSION := 4.3
 # makefile (from 'Makefile', line 12)
 LDFLAGS = -m elf_i386 -Ttext 0 -e startup_32
 # environment
-MANAGERPID = 1569
+MANAGERPID = 1297
 # environment
 LC_MEASUREMENT = zh_CN.UTF-8
 # environment
-GIO_LAUNCHED_DESKTOP_FILE_PID = 12614
+GIO_LAUNCHED_DESKTOP_FILE_PID = 5408
 # makefile (from 'Makefile', line 5)
 RAMDISK = 
 # environment
@@ -215,7 +216,7 @@ CFLAGS = -Wall -O2 -fomit-frame-pointer
 # makefile (from 'Makefile', line 23)
 ROOT_DEV = 
 # environment
-JOURNAL_STREAM = 8:24398
+JOURNAL_STREAM = 8:27025
 # environment
 XDG_SESSION_CLASS = user
 # environment
@@ -278,7 +279,6 @@ LC_IDENTIFICATION = zh_CN.UTF-8
 #  Modification time never checked.
 #  File has not been updated.
 #  recipe to execute (from 'Makefile', line 36):
- 
 	$(CC) $(CFLAGS) \
 	-nostdinc -Iinclude -c -o $*.o $<
 
@@ -372,6 +372,7 @@ boot/bootsect: boot/bootsect.s
 # | := 
 # variable set hash-table stats:
 # Load=8/32=25%, Rehash=0, Collisions=2/13=15%
+ 
 #  recipe to execute (from 'Makefile', line 94):
 	$(AS86) -o boot/bootsect.o boot/bootsect.s
 	$(LD86) -s -o boot/bootsect boot/bootsect.o
@@ -560,7 +561,6 @@ mm/mm.o:
 #  recipe to execute (from 'Makefile', line 81):
 	(cd mm; make)
 
- 
 # Not a target:
 include/linux/fs.h:
 #  Implicit rule search has not been done.
@@ -656,6 +656,7 @@ include/unistd.h:
 # VPATH Search Paths
 
 # No 'vpath' search paths.
+ 
 
 # No general ('VPATH' variable) search path.
 
@@ -665,6 +666,6 @@ include/unistd.h:
 # strcache performance: lookups = 114 / hit rate = 41%
 # hash-table stats:
 # Load=67/8192=1%, Rehash=0, Collisions=0/114=0%
-# Finished Make data base on Thu Jun  2 13:37:07 2022
+# Finished Make data base on Sun Jun  5 12:37:57 2022
 
  
