@@ -144,3 +144,118 @@ area---target 同a标签
 #### 与map共用
 
 修改usemap属性的值即可
+
+### 多媒体元素
+
+```html
+<video>content</video>
+<audio>content</audio>
+
+关键attribute：
+- src：写入资源路径
+- controls：可选值只能为"controls"，用于显示进度条
+- autoplay：可选值只能为"autoplay"，表示自动播放
+- muted：可选值为"muted"，表示默认静音播放
+- loop：可选值为"loop"，表示循环播放
+```
+
+### 列表
+
+```html
+有序列表
+<ol>
+	<li>item</li>
+    <li>item</li>
+    <li>item</li>
+</ol>
+
+无序列表
+<ul>
+	<li>item</li>
+	<li>item</li>
+    <li>item</li>
+</ul>
+```
+
+### 容器元素
+
+```html
+<div> </div>
+<header> </header>
+<footer> </footer>
+<article> </article>
+```
+
+### link
+
+```html
+<link>
+
+关键attribute：
+- rel：指定链接的类型，可选值有stylesheet（样式表）
+- href：对应文件的绝对路径或相对路径
+```
+
+
+
+## CSS
+
+### 结构
+
+```css
+/*选择器，对选中的属性应用声明块中的属性*/
+selector {
+    /*声明块，包含了css属性*/
+    declare block;
+}
+```
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        /* 会选中所有的h1标签 */
+        h1 {
+            color: aqua;
+            font-size: 3em;
+        }
+        /* 会选中id为myHeader的标签 */
+        #myHeader {
+            color: blue;
+        }
+        /* 会选中red类中的所有元素 */
+        .red {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    
+</body>
+</html>
+```
+
+### CSS属性
+
+#### 颜色相关
+
+| attribute        | description    | optional |
+| ---------------- | -------------- | -------- |
+| color            | 元素内部的颜色 | /        |
+| background-color | 元素的背景颜色 | /        |
+
+#### 字体
+
+| attribute   | description | optional          |
+| ----------- | ----------- | ----------------- |
+| font-size   | 字体大小    | px、em、预设值    |
+| font-family | 字体族      | 字体名            |
+| font-weight | 字体粗细    | 100 ~ 900、预设值 |
+| font-style  | 字体风格    | normal、itali     |
+
+#### 
