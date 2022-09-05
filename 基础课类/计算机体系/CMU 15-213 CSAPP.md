@@ -2376,3 +2376,79 @@ HTTP响应的基本格式
 > - **Content-Type** ：告诉客户端响应主体中内容的MIME类型
 >
 > - **Content-Length**：指示响应主体的字节大小
+
+## Lecture22 Concurrency
+
+### Posix Thread 库函数接口
+
+#### PThreads 标准API分类
+
+- 线程管理类（包括创建、销毁、加入等）
+- 互斥体
+- 条件变量
+- 线程间同步管理
+
+#### 线程管理接口
+
+##### pthread_once
+
+```c
+#include <pthread.h>
+
+// 在多线程模型下，有些函数（如初始化函数）只需要执行一次，但究竟会被哪个线程执行？
+// 这种情况下，可以使用全局变量实现互斥来保证这个函数只被执行一次，但用pthread_once调用函数会更简单的多（事实上，Linux下它的实现也是利用互斥锁和条件变量）
+// pthread_once_t 包含了一些函数执行的配置信息，init_routine是pthread_once会执行的函数
+int pthread_once(phtread_once_t* once_control,  void* (*init_routine)(void));
+
+pthread_once_t once = PTHREAD_ONCE_INIT;
+
+void sayHello() {
+    printf("Hello!\n");
+}
+
+void* thread_func(void* arg) {
+    pthread_once(&once, sayHello);
+    while (1);
+}
+
+int main() {
+    pthread_t tid1, tid2;
+    pthread_create(&tid2, NULL, thread_func, NULL);
+    pthread_create(&tid1, NULL, thread_func, NULL);
+    while (1);
+}
+
+//该程序只会输出一次hello（注意传入pthread_once中的once_control需要是同一个初始值为PTHREAD_ONCE_INIT 的变量地址）
+```
+
+##### 线程的创建
+
+```c
+#include <pthread.h>
+
+// 创建一个配置信息为attr(NULL会自动配置为缺省值)，tcb为tid的线程
+// 创建成功会返回0, 否则返回出错编号
+int pthread_create(pthread_t* tid, const pthread_attr_t* attr,
+                   		      void* (*routine)(void*),  void* args);
+```
+
+##### 线程的终止
+
+```c
+//分离线程，分离后线程的资源释放等交由操作系统控制
+int pthread_detach(pthread_t tid);
+
+//发送取消线程的信号，可以用于延迟停止线程
+int pthread_cancel(pthread_t tid);
+
+// 线程自陷，让操作系统调度执行其他线程
+int sched_yield();
+
+// 主线程阻塞，等待子线程结束并回收资源（如内核栈、申请的堆空间等）
+// status是一个指向子线程返回值的指针
+int pthread_join(pthread_t tid, void** status);
+
+// 退出线程，会释放线程特定的数据绑定
+int pthread_exit(void* status);
+```
+
