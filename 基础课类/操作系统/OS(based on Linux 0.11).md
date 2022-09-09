@@ -571,6 +571,8 @@ static inline int fork(void) {
 ```assembly
 #system_call.s
 
+
+    TSS描述符仅可能存放在GDT中，不能存放在LDT或IDT中。 32位模式下，TSS描述符格式如下： 当G标志是0时，界限字段的值大
 #根据main.c中绑定的中断表，调用了中断处理程序
 #int 0x80 - linux系统调用入口点(绑定中断int 0x80,eax中是调用号)
 .align 2

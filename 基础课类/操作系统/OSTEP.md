@@ -198,3 +198,168 @@ struct proc {
 ```
 
 ### Mechanism: Limited Direct Execution
+
+#### The problem with Time-Sharing
+
+​	To virtualize the CPU, OS should switch between different processes, but it also take some challenges.
+
+-   **Performance**    How to take as less as better overhead to schedule the processes? 
+-   **Control**    How can OS track the processes and keep (or retain) the control of the CPU?
+
+To solve these problems, a technique called Limited Direct Execution comes.
+
+#### What is Limited Direct Execution
+
+![image-20220907234003432](../../_Images/image-20220907234003432.png)
+
+​	Left side is Direct Execution protocol, it without the limit from the OS, so it can get all the control of CPU, but it also cause some problems.
+
+-   The devices are managed by OS, process can not access the devices directly.
+-   To virtualize the CPU, OS have to change the process which is running. But in Direct Execution Mode, OS could not get the control unless User Program give it up forwardly.
+
+​	So, Limited Direct Execution should solve these two problems.
+
+#### Problem #1: Restricted Operations
+
+​	The approach we take is to introduce a new processor mode named **user mode**, code run in the user mode is restricted in what it can do. In constrast to user mode is **kernel mode**, which the operating system runs in.
+
+>   **How to isolating the kernel and the user?**
+>
+>   ​	This function are totally implement by hardware. Take x86 ISA as example, CPU access memory is based on CS:IP registers. So, x86 make the lowest two bits of CS register as the priority of the code. Also, there are two special segment registers which called **CPL** and **DPL** (current priority level and destination priority level). The CPL's value is decided on CS register, and the DPL's value is decided on the next instruction's address. If the CPL's level lower than DPL's, then allow the operation.
+
+​	To provide API for the user, OS provides hundreds of system calls and set syscall number for each call. To execute a syscall, a program must execute a special **trap instruction** (for example,  INT 0x80 in x86 or ecall in RISCV). This kind of instruction will **save some context in kernel stack** and then **jumps into the kernel**. The **Privilege Level also be changed to Kernel Mode** during this period.
+
+​	After that, OS can deal with the request from the user program. Then, OS execute a **return-from-trap** instruction to resume the data of user program, and jump back to the user program code.
+
+​	But how OS know what to do? OS couldn't provides the functions address directly, it only provides **a series of syscall numbers**. When user want to do something, just **set the syscall number in some agreed position** (depends on the ISA and the OS, such as in some registers or in kernel stack). OS set a **trap table** when boost, when **comes a trap instruction**, the ISA will call the function set in trap table. For system call, OS often **provides a system call function to execute the match operation**.
+
+![image-20220908101045118](../../_Images/image-20220908101045118.png)
+
+>   **What is limited in this part?**
+>
+>   ​	OS limit the processes directly access devices. If a process want to do a I/O or other operations, it can only ask OS for help and provide a system call number (This limit the operation to the devices, because OS only provides finite system call, user program can only do these thing which has been prescribed).
+
+#### Problem #2: Switching Between Processes
+
+##### **How to regain the Control?**
+
+​	When a user program running, it control the physical CPU directly. **How can the OS regain control of the CPU so that can switch between processes?**
+
+>   **Consider What Means OS Gain the Control Of CPU**
+>
+>   ​	When CPU running the user program, the kernel is not running. When CPU running the kernel, means the OS regain the control.
+
+-   **Wait For System Calls**
+
+​	When user program make a system calls or trigger a exception or call a yield function, it will give up the control of CPU forwardly. So a schedule time can set when a system call finish.
+
+-   **The OS Takes Control**
+
+​	But if a process never give up the control, what would happen? (for example, the user program ends up in an infinite loop, and never make a system call) To solve this problem, OS must provide some way to regain the control non-cooperatively.
+
+​	When boost, OS will start a timer, and pre-configured the interrput handler. When a timer interrupt comes, the CPU trapped into the kernel, OS regain the control.
+
+
+
+##### **Saving and Restoring Context**
+
+![image-20220908110358601](../../_Images/image-20220908110358601.png)
+
+Take Linux 0.11 switching code as example...
+
+```c
+// main.c
+void main(void) {
+#ifdef RAMDISK
+    main_memory_start += rd_init(main_memory_start, RAMDISK * 1024);
+#endif
+    mem_init(main_memory_start, memory_end);
+    trap_init(); // init trap table
+	//...
+    time_init(); // start timer
+    sched_init(); // the timer handler and system handler in here
+	//...
+    move_to_user_mode();
+    if (!fork()) {
+        init();
+    }
+    for (;;)
+        pause();
+}
+
+// sched.c
+void sched_init(void) {
+    int i;
+    struct desc_struct* p;  // 描述符表结构指针
+	//...
+    // init the based pointer to the tss and ldt
+    set_tss_desc(gdt + FIRST_TSS_ENTRY, &(init_task.task.tss));
+    set_ldt_desc(gdt + FIRST_LDT_ENTRY, &(init_task.task.ldt));
+	//...
+    set_intr_gate(0x20, &timer_interrupt); // set timer handler
+    /*
+    	.align 2
+		timer_interrupt:
+		//...
+		jmp ret_from_sys_call
+    */
+    set_system_gate(0x80, &system_call);  // set system call handler
+}
+```
+
+```assembly
+# system_call.s
+system_call:
+	cmpl $nr_system_calls-1,%eax    #check the syscall number
+	ja bad_sys_call
+	#... prepare some arguments
+	call sys_call_table(,%eax,4)        # execute the system call funtion
+	pushl %eax                          # push return value to kernel stack
+	
+	#judge whether need to schedule
+	movl current,%eax                   # 取当前任务(进程)数据结构地址→eax
+	cmpl $0,state(%eax)		# state
+	jne reschedule
+	cmpl $0,counter(%eax)		# counter
+	je reschedule
+
+ret_from_sys_call:
+	# resume all context from k-stack
+	iret # go back to User mode
+	
+reschedule:
+	pushl $ret_from_sys_call # push the ret address to k-stack
+	jmp schedule
+```
+
+```c
+void schedule(void) {
+    int next;
+    // CFS choose next process
+    switch_to(next);
+    //there will return to ret_from_sys_call function
+}
+
+// Linux 0.11 didn't use k-stack to save context, only use a TR register point to a TSS which include all the context. By change the TR register will change the TSS, will change the value resume to CPU.
+define switch_to(n) {
+	struct {
+    	long a, b;
+	} __tmp;
+   
+	__asm__(
+    	"cmpl %%ecx,current\n\t"
+    	"je 1f\n\t"
+    	"movw %%dx,%1\n\t"
+    	"xchgl %%ecx,current\n\t"
+    	"ljmp *%0\n\t"
+    	"cmpl %%ecx,last_task_used_math\n\t"
+    	"jne 1f\n\t"
+    	"clts\n"
+    	"1:" ::"m"(*&__tmp.a),
+    	"m"(*&__tmp.b),
+    	"d"(_TSS(n)),
+    	"c"((long)task[n]) 
+    );
+}
+```
+
