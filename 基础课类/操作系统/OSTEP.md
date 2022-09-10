@@ -363,3 +363,58 @@ define switch_to(n) {
 }
 ```
 
+### Scheduling: Introduction
+
+#### Scheduling Metrics
+
+-   **Turnaround Time**    T~turnaround~ = T~completion~ - T~arrival~
+-   **Response Time**    T~response~ = T~firstrun~ - T~arrival~
+
+#### Some Basic Scheduler
+
+-   **FIFO**    First in first service, it perform bad in both Turnaround Time and Response Time.
+-   **SJF**    Short-Job-First, perform better in Turnaround Time, but can not deal with the situation that the tasks not arrival at the same time.
+
+-   **STCF**  Shortest Time-to-Completion First, which can perform best in turnaround time, but the perform bad  response time.
+-   **RR**  Round-Robin, which let each process run the same time then switch to another one. It's totally fair, perform best at response time, but perform bad at turnaround time.
+
+###  Scheduling: MLFQ
+
+#### The Crux
+
+​	MLFQ try to solve two problems. First, it would like **to optimize turnaround time** (which can implement by running shorter jobs first); Second, to make a system feel responsive to interactive users, which **should minimize response time**.
+
+​	But for minimizing the overhead of OS, an OS can not have a perfect knowledge to every process. How To Schedule in this situation?
+
+#### The Rules of MLFQ
+
+-   **Rule 1:  If Priority(A) > Priority(B), A runs while B doesn't.**
+-   **Rule 2:  If Priority(A) = Priority(B), A&B run in RR fashion using the time slice of the given queue.**
+
+-   **Rule 3:  When a job enters enters the system, it is placed at the highest priority.**
+
+-   **Rule 4:  Once a job uses up its time allotment at a given level, its priority is reduced.**
+
+-   **Rule 5:  After some time period S, move all the jobs in the system to the topmost queue**
+
+>   **The Reason For Rules**
+>
+>   ​	For Rule 1&2, it can deliver excellent overall *performance similar to SJF/STCF* for short-running tasks and *provides fairness to tasks* in the same priority level.
+>
+>   ​	For Rule 3, it can *remenber the type of a task* (I/O-bound or CPU-bound) then use a suitable way to schedule them.
+>
+>   ​	For Rule 4, it *avoid the user-program gaming with the OS*
+>
+>   ​	For Rule 5, it *avoid the starvation of the long-running jobs* (by boosting priority)
+
+#### Diagrammatic Presentation
+
+![image-20220910143715816](../../_Images/image-20220910143715816.png)
+
+-   A: This Period Only Task A running, after consume its time in high priority out, it reduced its priority until to the lowest level.
+
+-   B: Then comes two new tasks (B and C), they coming with highest Level , so the task A hang on the kernel and waiting for scheduling, B and C run in RR fashion.
+-   C: Now the task B and C finished, OS resume the task A to running.
+-   D: Here comes the task D, it try to gaming with the OS (pretend to be a short-term task) but failed, after running out of its time, it be move to the lower priority level.
+-   E: Comes a lot of new tasks, to avoid the starvation of the long-running task, OS boost all the tasks to the highest priority.
+-   F: The short running tasks finished, the task A continue running...
