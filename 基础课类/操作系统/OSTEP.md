@@ -108,7 +108,7 @@ int main(){
 
 -   Provide a **high degree of reliability**
 
-## Part I  -- Virtualization
+## Part I — Virtualization
 
 ### The Abstraction: The Process
 
@@ -382,7 +382,7 @@ define switch_to(n) {
 
 #### The Crux
 
-​	MLFQ try to solve two problems. First, it would like **to optimize turnaround time** (which can implement by running shorter jobs first); Second, to make a system feel responsive to interactive users, which **should minimize response time**.
+​	Multi-Level Feedback Queue try to solve two problems. First, it would like **to optimize turnaround time** (which can implement by running shorter jobs first); Second, to make a system feel responsive to interactive users, which **should minimize response time**.
 
 ​	But for minimizing the overhead of OS, an OS can not have a perfect knowledge to every process. How To Schedule in this situation?
 
@@ -411,10 +411,155 @@ define switch_to(n) {
 
 ![image-20220910143715816](../../_Images/image-20220910143715816.png)
 
--   A: This Period Only Task A running, after consume its time in high priority out, it reduced its priority until to the lowest level.
+>   -   A: This Period Only Task A running, after consume its time in high priority out, it reduced its priority until to the lowest level.
+>
+>   -   B: Then comes two new tasks (B and C), they coming with highest Level , so the task A hang on the kernel and waiting for scheduling, B and C run in RR fashion.
+>   -   C: Now the task B and C finished, OS resume the task A to running.
+>   -   D: Here comes the task D, it try to gaming with the OS (pretend to be a short-term task) but failed, after running out of its time, it be move to the lower priority level.
+>   -   E: Comes a lot of new tasks, to avoid the starvation of the long-running task, OS boost all the tasks to the highest priority.
+>   -   F: The short running tasks finished, the task A continue running...
 
--   B: Then comes two new tasks (B and C), they coming with highest Level , so the task A hang on the kernel and waiting for scheduling, B and C run in RR fashion.
--   C: Now the task B and C finished, OS resume the task A to running.
--   D: Here comes the task D, it try to gaming with the OS (pretend to be a short-term task) but failed, after running out of its time, it be move to the lower priority level.
--   E: Comes a lot of new tasks, to avoid the starvation of the long-running task, OS boost all the tasks to the highest priority.
--   F: The short running tasks finished, the task A continue running...
+### Scheduling: CFS
+
+#### Proportional Share
+
+​	The Linux Completely Fair Scheduler is one kind of **Proportional Share**, here are some basic way to implement proportional share.
+
+##### **Lottery Scheduler**
+
+​	Distribute some **Tickets** to each process, then generate a random winner ticket number, the process which has the winner ticket will run.
+
+​	The advantages of the lottery scheduler is clear.
+
+-   *Easy to implemention*, You only need a random number generator and record the tickets for every process. 
+-   *Totally Fair*
+-   *Easy to optimize*
+
+##### **Stride Scheduler**
+
+​	Distribute some **STEP LENGTH** to each process, record the total length each process has walk. Once a process running a slice, its total length plus with its step length. Every time choose the process which has shortest total length  to run.
+
+​	it can provide a deterministic proportional share, but it doesn't has a global state, so it perform bad when a new process come in.
+
+#### Basic Operation
+
+​	While most scheduler based on the concept of a fixed time slice, CFS based on a technique called **Virtual Runtime** (vruntime).
+
+​	As each process runs, it accumulates vruntime. In the most basic case, each process's vruntime increases at the *same rate*. When a scheduling decision occurs, CFS choose *the process with the lowerst vruntime to run* next.
+
+​	CFS also maintain a variable called **sched_latency**, which determine how long a process should run before considering a switch. CFS *divide this value by the number of processes running on CPU to determine the time slice for a process*. After determine the slice length, processes run in RR fashion.
+
+​	But what if too many processes? It will cause the slice become very short and frequently switch, which perform bad in effciency. So CFS maintain another variable called **min_granularity** to define how long the shortest slice should be.
+
+>   **Rule #1**
+>
+>   ​	CFS **divide sched_latency by n (process num) to become a slice**, **track the vruntime** of each process, choose **the lowest vruntime process to run**. If n is too big, CFS use a **min_granularity to limited the length of the slice**.
+
+#### Weighting
+
+​	CFS also enables controls over process priority through a classic Unix mechanism known as the nice level of a process.
+
+>   **Niceness**
+>
+>   ​	Unix allows using a niceness number to describe the priority of a process. Niceness level can be set from -20 to 19, with negtive number has higher priority, and 0 as the default.
+>
+>   ​	CFS use a map to transfer nice level to weight.
+>
+>   ```c
+>   static const int prio_to_weight[40] = {
+>       88761,  71755,  56483,  46273,  36291,
+>       29154,  23254,  18705,  14949,  11916,
+>        9548,   7620,   6100,   4904,   3906,
+>        3121,   2501,   1991,   1586,   1277,
+>        1024,    820,    655,    526,    423,
+>         335,    272,    215,    172,    137,
+>         110,     87,     70,     56,     45,
+>          36,     29,     23,     18,     15,
+>   };
+>   ```
+
+​	CFS implement priority by scaling the vruntime for different niceness levels process. With the following way to update vruntime:
+$$
+vruntime_{i,t} = vruntime_{i, t-1} + \frac{weight_0}{weight_i} * runtime
+$$
+​	It seems like the low priority process's **time flowing "quicker"** than the one in high priority, so the high priority process will be choose more likely.
+
+#### Using RB-Tree
+
+​	CFS should maintain a queue sorted by vruntime which contained all the running processes. So use a effcient data-structure is very important. CFS use a special red-black-tree to orgnize the queue (which will "cache" the leftest node...) so that it can reach the complexity of time O(1).
+
+#### Diagrammatic Presentation
+
+![image-20220911170907640](../../_Images/image-20220911170907640.png)
+
+### The Abstraction: Address Spaces
+
+#### What is Address Space
+
+​	With the multiprogramming and time sharing coming, a problem comes. How can different processes share the memory? One way to implement it is, *giving it full access to all memory*, *consider the whole memory as a part of context*. When a switch occured, store all memory into disk, and resume the memory of another process from the disk, which called **swap**.
+
+​	But when the memory size become larger and larger, it will take a lot of time to swap the whole memory to disk. So **OS should create an easy to use abstraction of physical memory**, which is **the running program's view of memory in the system**.
+
+​	**The address space of a process contains all of the memory state of the running program.** Include the code segment, stack segment and so on.
+
+>   **The Linux VM layout**
+>
+>   ​	Can find that VM system even provides a space larger than the Physical Memory.
+>
+>   <img src="../../_Images/image-20220913212822090.png" alt="image-20220913212822090" style="zoom: 67%;" />
+
+#### Goals
+
+-   **Transparency**  The OS should implement the VMS in a way that is invisible to the running program.
+-   **Efficiency**  Should make the virtualization as efficient as possible, both in term of time and space.
+-   **Protection**  Should make sure to protect processes from one another.
+
+
+
+### Mechanism: Address Translation
+
+#### The Crux
+
+​	In VMS, just like in LDE (Limited Direct Execute), we also need to attain both **effiiency and control** while providing the desired virtualization.
+
+​	Efficiency means we should make use of hardware support; and Control required OS to ensures  that no application is allowed to access any memory but its own.
+
+**But How To Efficiently And Flexibly Virtualize Memory?**
+
+-   How can we build an efficient VM?
+-   How do we provide the flexibility needed by applications?
+-   How do we maintain control over which memory locations an application can access?
+
+#### Hardware-Based Address Translation
+
+​	**Hardware-based address translation**, or address translation for short, is the key to solve these problems. It occurs every time the CPU try to access memory. It will change the **virtual address** provided by the instruction to a **physical address**, which will redirect application memory references to their actual locations in memory. Such a frequently mechanism must need hardware support, which provided by the **MMU** (memory management unit).
+
+#### Dynamic Relocation
+
+​	At the beginning, MMU provide a pair of registers, which is called **base and bound**. The address translation at this time is very easy:
+$$
+PA = VA + REG[base]
+$$
+​	When user program try to access memory, MMU will add its VA and the value in base register as the PA it will actually access. The bound register is used to record the memory size a program could access, MMU will check whether the VA is greater than 0 and less than bound, so that processes isolation to each other. If a user program try to access a illegel memory unit, MMU will raise an exception.
+
+<img src="../../_Images/image-20220917154704677.png" alt="image-20220917154704677" style="zoom:67%;" />
+
+​	When a switch occurring, the base and bound register of the running process will be saved into its PCB, at the same time regs of the choosen process will be resume into the CPU. Then the virtual address will be redirect to another address space.
+
+​	It is also easy for OS to create a address space for a new process —— just need to find a free space and set the bound and base register for the new process.
+
+
+
+### Segmentation
+
+#### The Crux
+
+​	With the bound and base register pair, we can easily putting the whole virtual memory into the physical memory. But, as you can see in the figure, **although the space between the stack and the heap haven't been used, it still take up the physical space**. If the process didn't need so much space, the space is wasted.
+
+​	So the crux is —— **How to support a large address space with a lot of free space between the stack and heap?**
+
+#### Generalized Base and Bound
+
+​	To solve this problem, an idea called segmentation was born. It's very simple: since a pair of base and bound can mark a piece of memory, why not **have more bases and bounds for per logical segment of address space**?
+
+​	Now in our system, we only have three logical segment —— code, stack and heap. So we can use three pair of register to mark them.
