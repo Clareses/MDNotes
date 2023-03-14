@@ -73,8 +73,6 @@ pom.xml是依赖配置文件，maven根据此文件进行项目依赖管理
 </project>
 ```
 
-
-
 ## Maven的使用
 
 ### 项目生命周期管理
@@ -85,6 +83,53 @@ pom.xml是依赖配置文件，maven根据此文件进行项目依赖管理
 - mvn test
 - mvn package
 - mvn deploy
+
+### 快速建立maven项目
+
+```shell
+mvn archetype:generate
+```
+
+### 模板pom.xml
+
+```xml
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>pers.mywork</groupId>
+  <artifactId>mywork</artifactId>
+  <packaging>jar</packaging>
+  <version>1</version>
+  <name>mywork</name>
+  <url>http://maven.apache.org</url>
+  <dependencies>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>3.8.1</version>
+      <scope>test</scope>
+  </dependency>
+  <!-- https://mvnrepository.com/artifact/com.mysql/mysql-connector-j -->
+    <dependency>
+      <groupId>com.mysql</groupId>
+      <artifactId>mysql-connector-j</artifactId>
+      <version>8.0.31</version>
+  </dependency>
+  </dependencies>
+  <build>
+  	<plugins>
+	  <plugin>
+		<groupId>org.codehaus.mojo</groupId>
+		<artifactId>exec-maven-plugin</artifactId>
+		<configuration>
+		  <mainClass>pers.mywork.Main</mainClass>
+		</configuration>
+	  </plugin>
+	</plugins>
+  </build>
+</project>
+
+```
 
 
 
