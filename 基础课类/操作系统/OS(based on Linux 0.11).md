@@ -1488,7 +1488,7 @@ sys_fork:
 	pushl %edi
 	pushl %ebp
 	pushl %eax
-	call copy_process 			# 关键函数是copu_process
+	call copy_process 			# 关键函数是copy_process
 	addl $20,%esp               # 丢弃这里所有压栈内容。
 1:	ret
 ```
